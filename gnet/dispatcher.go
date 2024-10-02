@@ -91,3 +91,24 @@ func (d *Dispatcher) BatchDispatch(conn trait.Connection) error {
 
 	return nil
 }
+
+// SetHeaderDeadline 设置header读取超时时间
+func (d *Dispatcher) SetHeaderDeadline(deadline time.Time) {
+	d.headerDeadline = deadline
+}
+
+// SetBodyDeadline 设置body读取超时时间
+func (d *Dispatcher) SetBodyDeadline(deadline time.Time) {
+	d.bodyDeadline = deadline
+}
+
+// ChooseQueue 选择处理连接的队列
+func (d *Dispatcher) ChooseQueue(conn trait.Connection) chan <- trait.Connection {
+	// 负载均衡，选择队列
+	return d.connQueue[conn.ID() % int32(len(d.connQueue))]
+}
+
+// Commit 提交连接到队列
+func (d *Dispatcher) Commit(conn trait.Connection) {
+	d.ChooseQueue(conn) <- conn
+}

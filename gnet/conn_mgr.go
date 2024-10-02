@@ -3,10 +3,10 @@ package gnet
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"syscall"
 	"time"
 
+	"github.com/go75/gte/core"
 	"github.com/go75/gte/trait"
 )
 
@@ -21,11 +21,11 @@ type ConnMgr struct {
 	headerTimeout time.Duration
 	bodyTimeout time.Duration
 
+	dispatcher trait.Dispatcher
 	taskMgr trait.TaskMgr
 
 	// key: fd, value: Conn
-	conns map[int32]trait.Connection
-	connsLock sync.RWMutex
+	connShards *core.KVShards[int32, trait.Connection]
 }
 
 var _ trait.ConnMgr = (*ConnMgr)(nil)
@@ -43,19 +43,15 @@ func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
 		fd: epfd,
 		timeout: timeout,
 		events: make([]syscall.EpollEvent, eventSize),
-		conns: make(map[int32]trait.Connection),
-		connsLock: sync.RWMutex{},
+		connShards: core.NewKVShards[int32, trait.Connection](32),
 	}
 
 	return connMgr, nil
 }
 
 // Get 在连接管理器中查群连接
-func (e *ConnMgr) Get(fd int32) trait.Connection {
-	e.connsLock.RLock()
-	defer e.connsLock.RUnlock()
-
-	return e.conns[fd]
+func (e *ConnMgr) Get(fd int32) (trait.Connection, bool) {
+	return e.connShards.Get(fd)
 }
 
 // Add 在连接管理器中添加连接
@@ -66,7 +62,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 	}
 	fd := sock.Fd()
 
-	if _, ok := e.conns[int32(fd)]; ok {
+	if _, ok := e.Get(int32(fd)); ok {
 		return errors.New("connection already exists")
 	}
 
@@ -79,7 +75,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 		return err
 	}
 
-	e.conns[int32(fd)] = conn
+	e.connShards.Set(int32(fd), conn)
 
 	return nil
 }
@@ -95,7 +91,7 @@ func (e *ConnMgr) Del(fd int) error {
 		return err
 	}
 
-	delete(e.conns, int32(fd))
+	e.connShards.Del(int32(fd))
 
 	return nil
 }
@@ -107,25 +103,23 @@ func (e *ConnMgr) Wait() (int, error) {
 	return n, err
 }
 
-func (e *ConnMgr) BatchProcess(n int) {
-	e.connsLock.RLock()
-	defer e.connsLock.RUnlock()
-
-	headerDeadline := time.Now().Add(e.headerTimeout)
-	bodyDeadline := time.Now().Add(e.bodyTimeout)
+// BatchCommit 批量处理待读取的连接
+func (e *ConnMgr) BatchCommit(n int) {
+	e.dispatcher.SetHeaderDeadline(time.Now().Add(e.headerTimeout))
+	e.dispatcher.SetBodyDeadline(time.Now().Add(e.bodyTimeout))
 
 	for n > 0 {
 		n--
 		fd := int32(e.events[n].Fd)
-		conn := e.conns[fd]
-
-		err := e.taskMgr.BatchDispatch(conn, headerDeadline, bodyDeadline)
-		if err != nil {
-			fmt.Println("batch dispatch error:", err)
+		conn, ok := e.Get(fd)
+		if !ok {
+			fmt.Println("connection not found:", fd)
+			continue
 		}
-	}
 
-	// 基于全局的连接管理模块，获取待处理的连接列表
+		// 提交待读取的连接
+		e.dispatcher.Commit(conn)
+	}
 }
 
 // Start 启动连接管理器
@@ -137,13 +131,14 @@ func (e *ConnMgr) Start() {
 			continue
 		}
 
-		e.BatchProcess(n)
+		e.BatchCommit(n)
 	}
 }
 
 // Close 关闭连接管理器
 func (e *ConnMgr) Close() {
-	for _, conn := range e.conns {
+	n := e.connShards.Count()
+	for conn := range e.connShards.ValuesIter(n) {
 		conn.Close()
 	}
 
