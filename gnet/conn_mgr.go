@@ -22,7 +22,6 @@ type ConnMgr struct {
 	bodyTimeout time.Duration
 
 	dispatcher trait.Dispatcher
-	taskMgr trait.TaskMgr
 
 	// key: fd, value: Conn
 	connShards *core.KVShards[int32, trait.Connection]
