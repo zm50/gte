@@ -2,17 +2,16 @@ package gcore
 
 import (
 	"fmt"
-	"net"
 
-	"github.com/go75/gte/global"
+	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/trait"
 )
 
 // Engine 服务器引擎接口实现
 type Engine struct {
-	address net.TCPAddr
-	version string
+	trait.ServerConfig
 
+	gateway trait.Gateway
 	connMgr trait.ConnMgr
 	taskMgr trait.TaskMgr
 }
@@ -24,18 +23,17 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 	// 新建任务管理器
 	taskMgr := NewTaskMgr()
 	
-	connMgr, err := NewConnMgr(global.Config.EpollTimeout, global.Config.EpollEventSize)
+	connMgr, err := NewConnMgr(gconf.Config.EpollTimeout(), gconf.Config.EpollEventSize())
 	if err != nil {
 		fmt.Println("NewConnMgr error:", err)
 		return nil, err
 	}
 
+	gateway := NewGateway(connMgr)
+
 	engine := &Engine{
-		address: net.TCPAddr{
-			IP:   net.ParseIP(ip),
-			Port: port,
-		},
-		version: version,
+		ServerConfig: gconf.Config,
+		gateway: gateway,
 		connMgr: connMgr,
 		taskMgr: taskMgr,
 	}
@@ -45,22 +43,24 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 
 // Run 启动服务器引擎
 func (e *Engine) Run() error {
-	fmt.Println("Server listening on ", e.address.String())
-	listener, err := net.ListenTCP(e.version, &e.address)
-	if err != nil {
-		return err
-	}
+	fmt.Printf("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
 
 	e.connMgr.Start()
 
-	e.acceptConn(listener)
+	err := e.gateway.ListenAndServe()
+	if err != nil {
+		fmt.Println("ListenAndServe error:", err)
+		return err
+	}
 
 	return nil
 }
 
 // Stop 停止服务器引擎
 func (e *Engine) Stop() {
-	
+	e.connMgr.Stop()
+
+	e.gateway.Stop()
 }
 
 // Regist 注册任务处理逻辑
@@ -87,25 +87,3 @@ func (e *Engine) Group(flow ...trait.TaskFunc) trait.RouterGroup {
 func (e *Engine) Use(flow ...trait.TaskFunc) {
 	e.taskMgr.Use(flow...)
 }
-
-// acceptConn 监听阻塞客户端连接
-func (e *Engine) acceptConn(listener *net.TCPListener) {
-	for {
-		conn, err := listener.AcceptTCP()
-		if err != nil {
-			fmt.Println("Accept error:", err)
-			continue
-		}
-
-		file, err := conn.File()
-		if err != nil {
-			fmt.Println("File error:", err)
-			continue
-		}
-		// 处理
-		connection := NewConnection(int32(file.Fd()), conn)
-
-		e.connMgr.Add(connection)
-	}
-}
-

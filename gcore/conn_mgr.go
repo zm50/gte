@@ -134,8 +134,8 @@ func (e *ConnMgr) Start() {
 	}
 }
 
-// Close 关闭连接管理器
-func (e *ConnMgr) Close() {
+// Stop 结束连接管理器
+func (e *ConnMgr) Stop() {
 	n := e.connShards.Count()
 	for conn := range e.connShards.ValuesIter(n) {
 		conn.Close()

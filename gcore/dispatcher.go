@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/go75/gte/global"
+	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 )
@@ -24,9 +24,9 @@ var _ trait.Dispatcher = (*Dispatcher)(nil)
 
 // NewDispatcher 创建一个请求分发器
 func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
-	connQueue := make([]chan trait.Connection, global.Config.DispatcherQueues)
+	connQueue := make([]chan trait.Connection, gconf.Config.DispatcherQueues())
 	for i := 0; i < len(connQueue); i++ {
-		connQueue[i] = make(chan trait.Connection, global.Config.DispatcherQueueLen)
+		connQueue[i] = make(chan trait.Connection, gconf.Config.DispatcherQueueLen())
 	}
 
 	return &Dispatcher{
@@ -38,7 +38,7 @@ func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
 // Start 启动请求分发模块
 func (d *Dispatcher) Start() {
 	for i := 0; i < len(d.connQueue); i++ {
-		for j := 0; j < global.Config.DispatcherQueueLen; j++ {
+		for j := 0; j < gconf.Config.DispatcherQueueLen(); j++ {
 			go d.Dispatch(d.connQueue[i])
 		}
 	}

@@ -7,5 +7,5 @@ type ConnMgr interface {
 	Wait() (int, error)
 	BatchCommit(n int)
 	Start()
-	Close()
+	Stop()
 }
