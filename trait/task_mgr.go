@@ -5,5 +5,6 @@ type TaskMgr interface {
 
 	Start()
 	StartWorker(taskQueue chan Request)
+	ChooseQueue(connID uint64) chan <- Request
 	Submit(request Request)
 }

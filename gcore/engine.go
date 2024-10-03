@@ -3,6 +3,7 @@ package gcore
 import (
 	"fmt"
 
+	"github.com/go75/gte/constant"
 	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/trait"
 )
@@ -29,7 +30,15 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 		return nil, err
 	}
 
-	gateway := NewGateway(connMgr)
+	var gateway trait.Gateway
+	switch gconf.Config.NetworkMode() {
+	case constant.TCPNetowrkMode:
+		gateway = NewTCPGateway(connMgr, taskMgr)
+	case constant.WebsocketNetworkMode:
+		gateway = NewWebsocketGateway(connMgr, taskMgr)
+	default:
+		gateway = NewTCPGateway(connMgr, taskMgr)
+	}
 
 	engine := &Engine{
 		ServerConfig: gconf.Config,
@@ -54,13 +63,6 @@ func (e *Engine) Run() error {
 	}
 
 	return nil
-}
-
-// Stop 停止服务器引擎
-func (e *Engine) Stop() {
-	e.connMgr.Stop()
-
-	e.gateway.Stop()
 }
 
 // Regist 注册任务处理逻辑

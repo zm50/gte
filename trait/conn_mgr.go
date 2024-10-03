@@ -1,5 +1,7 @@
 package trait
 
+import "time"
+
 type ConnMgr interface {
 	Get(fd int32) (Connection, bool)
 	Add(conn Connection) error
@@ -8,4 +10,6 @@ type ConnMgr interface {
 	BatchCommit(n int)
 	Start()
 	Stop()
+	ReadDeadline() time.Time
+	MaxReadDeadline() time.Time
 }

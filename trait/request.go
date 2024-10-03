@@ -3,6 +3,6 @@ package trait
 type Request interface {
 	Message
 
-	ConnID() int32
+	ConnID() uint64
 	Send(msgID uint16, data []byte) error
 }

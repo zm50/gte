@@ -1,13 +1,9 @@
 package gcore
 
 import (
-	"encoding/binary"
-	"io"
-	"net"
 	"time"
 
 	"github.com/go75/gte/gconf"
-	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 )
 
@@ -48,49 +44,8 @@ func (d *Dispatcher) Start() {
 func (d *Dispatcher) Dispatch(connQueue chan trait.Connection) {
 	// 从conn中读取数据，并将数据提交给taskMgr处理
 	for conn := range connQueue {
-		d.BatchDispatch(conn)
+		conn.BatchCommit()
 	}
-}
-
-// BatchDispatch 批量读取连接中的数据，并封装成请求，然后分发请求
-func (d *Dispatcher) BatchDispatch(conn trait.Connection) error {
-	for time.Now().After(d.headerDeadline) {
-		header := make([]byte, 4)
-
-		// 设置header读取超时时间
-		conn.SetReadDeadline(d.headerDeadline)
-
-		_, err := io.ReadFull(conn, header)
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// 数据包读取超时
-				return nil
-			}
-
-			return err
-		}
-
-		// 设置body读取超时时间
-		conn.SetReadDeadline(d.bodyDeadline)
-
-		// 读取长度
-		dataLen := binary.BigEndian.Uint16(header[2:4])
-		// 读取数据
-		body := make([]byte, dataLen)	
-		_, err = io.ReadFull(conn, body)
-		if err != nil {
-			return err
-		}
-
-		msg := gpack.Unpack(header, body)
-		// 提交消息，处理数据
-		
-		request := NewRequest(conn, msg)
-
-		d.taskMgr.Submit(request)
-	}
-
-	return nil
 }
 
 // SetHeaderDeadline 设置header读取超时时间
@@ -104,12 +59,12 @@ func (d *Dispatcher) SetBodyDeadline(deadline time.Time) {
 }
 
 // ChooseQueue 选择处理连接的队列
-func (d *Dispatcher) ChooseQueue(conn trait.Connection) chan <- trait.Connection {
+func (d *Dispatcher) ChooseQueue(connID uint64) chan <- trait.Connection {
 	// 负载均衡，选择队列
-	return d.connQueue[conn.ID() % int32(len(d.connQueue))]
+	return d.connQueue[connID % uint64(len(d.connQueue))]
 }
 
 // Commit 提交连接到队列
 func (d *Dispatcher) Commit(conn trait.Connection) {
-	d.ChooseQueue(conn) <- conn
+	d.ChooseQueue(conn.ID()) <- conn
 }

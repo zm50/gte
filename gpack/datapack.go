@@ -37,3 +37,19 @@ func Unpack(header []byte, body []byte) trait.Message {
 
 	return msg
 }
+
+// 拆包头部
+func UnpackHeader(header []byte) (id uint16, dataLen uint16) {
+	id = binary.BigEndian.Uint16(header[:2])
+	dataLen = binary.BigEndian.Uint16(header[2:4])
+
+	return
+}
+
+// 拆包完整数据
+func UnpackFullData(data []byte) trait.Message {
+	id := binary.BigEndian.Uint16(data[0:2])
+	msg := NewMessage(id, data[4:])
+
+	return msg
+}

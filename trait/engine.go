@@ -7,6 +7,4 @@ type Engine interface {
 
 	// 运行服务器
 	Run() error
-	// 停止服务器
-	Stop()
 }

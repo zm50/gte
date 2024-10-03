@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go75/gte/constant"
 	"github.com/go75/gte/trait"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -13,16 +15,19 @@ type ServerConfig struct {
 	listenIP string
 	listenPort int
 	networkVersion string
+	readTimeout int
+	maxReadTimeout int
+	networkMode int
 	maxConns int
 	maxPacketSize int
 	epollTimeout int
 	epollEventSize int
 	dispatcherQueues int
 	dispatcherQueueLen int
-	workersPerDispatcherQueue int
 	taskQueues int
 	taskQueueLen int
 	workersPerTaskQueue int
+	websocketQueueLen int
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
@@ -32,6 +37,9 @@ var Config trait.ServerConfig = &ServerConfig{
 	listenIP: "0.0.0.0",
 	listenPort: 8080,
 	networkVersion: "tcp4",
+	readTimeout: 100,
+	maxReadTimeout: 200,
+	networkMode: constant.TCPNetowrkMode,
 
 	maxConns: 1024,
 	maxPacketSize: 4096,
@@ -39,13 +47,14 @@ var Config trait.ServerConfig = &ServerConfig{
 	epollTimeout: -1,
 	epollEventSize: 1024,
 
-	dispatcherQueues: 10,
-	dispatcherQueueLen: 100,
-	workersPerDispatcherQueue: 10,
+	dispatcherQueues: 8,
+	dispatcherQueueLen: 128,
 
-	taskQueues: 10,
-	taskQueueLen: 100,
-	workersPerTaskQueue: 10,
+	taskQueues: 16,
+	taskQueueLen: 128,
+	workersPerTaskQueue: 8,
+
+	websocketQueueLen: 16,
 }
 
 // Load 从配置文件中加载配置
@@ -79,6 +88,18 @@ func (c *ServerConfig) NetworkVersion() string {
 	return c.networkVersion
 }
 
+func (c *ServerConfig) ReadTimeout() int {
+	return c.readTimeout
+}
+
+func (c *ServerConfig) MaxReadTimeout() int {
+	return c.maxReadTimeout
+}
+
+func (c *ServerConfig) NetworkMode() int {
+	return c.networkMode
+}
+
 func (c *ServerConfig) MaxConns() int {
 	return c.maxConns
 }
@@ -103,10 +124,6 @@ func (c *ServerConfig) DispatcherQueueLen() int {
 	return c.dispatcherQueueLen
 }
 
-func (c *ServerConfig) WorkersPerDispatcherQueue() int {
-	return c.workersPerDispatcherQueue
-}
-
 func (c *ServerConfig) TaskQueues() int {
 	return c.taskQueues
 }
@@ -117,6 +134,10 @@ func (c *ServerConfig) TaskQueueLen() int {
 
 func (c *ServerConfig) WorkersPerTaskQueue() int {
 	return c.workersPerTaskQueue
+}
+
+func (c *ServerConfig) WebsocketQueueLen() int {
+	return c.websocketQueueLen
 }
 
 func (c *ServerConfig) WithListenIP(listenIP string) trait.ServerConfig {
@@ -131,6 +152,21 @@ func (c *ServerConfig) WithListenPort(listenPort int) trait.ServerConfig {
 
 func (c *ServerConfig) WithNetworkVersion(networkVersion string) trait.ServerConfig {
 	c.networkVersion = networkVersion
+	return c
+}
+
+func (c *ServerConfig) WithReadTimeout(readTimeout int) trait.ServerConfig {
+	c.readTimeout = readTimeout
+	return c
+}
+
+func (c *ServerConfig) WithMaxReadTimeout(maxReadTimeout int) trait.ServerConfig {
+	c.maxReadTimeout = maxReadTimeout
+	return c
+}
+
+func (c *ServerConfig) WithNetworkMode(networkMode int) trait.ServerConfig {
+	c.networkMode = networkMode
 	return c
 }
 
@@ -164,11 +200,6 @@ func (c *ServerConfig) WithDispatcherQueueLen(dispatcherQueueLen int) trait.Serv
 	return c
 }
 
-func (c *ServerConfig) WithWorkersPerDispatcherQueue(workersPerDispatcherQueue int) trait.ServerConfig {
-	c.workersPerDispatcherQueue = workersPerDispatcherQueue
-	return c
-}
-
 func (c *ServerConfig) WithTaskQueues(taskQueues int) trait.ServerConfig {
 	c.taskQueues = taskQueues
 	return c
@@ -181,5 +212,10 @@ func (c *ServerConfig) WithTaskQueueLen(taskQueueLen int) trait.ServerConfig {
 
 func (c *ServerConfig) WithWorkersPerTaskQueue(workersPerTaskQueue int) trait.ServerConfig {
 	c.workersPerTaskQueue = workersPerTaskQueue
+	return c
+}
+
+func (c *ServerConfig) WithWebsocketQueueLen(websocketQueueLen int) trait.ServerConfig {
+	c.websocketQueueLen = websocketQueueLen
 	return c
 }

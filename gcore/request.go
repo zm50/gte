@@ -19,7 +19,7 @@ func NewRequest(conn trait.Connection, msg trait.Message) trait.Request {
 }
 
 // ConnID 连接ID
-func (r *Request) ConnID() int32 {
+func (r *Request) ConnID() uint64 {
 	return r.Connection.ID()
 }
 

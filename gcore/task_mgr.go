@@ -49,9 +49,15 @@ func (m *TaskMgr) StartWorker(taskQueue chan trait.Request) {
 	}
 }
 
+// ChooseQueue 选择处理连接的队列
+func (m *TaskMgr) ChooseQueue(connID uint64) chan <- trait.Request {
+	// 负载均衡，选择队列
+	return m.taskQueues[connID % uint64(len(m.taskQueues))]
+}
+
 // Submit 提交任务
 func (m *TaskMgr) Submit(request trait.Request) {
-	m.taskQueues[int(request.ConnID()) % len(m.taskQueues)] <- request
+	m.ChooseQueue(request.ConnID()) <- request
 }
 
 // Use 注册插件

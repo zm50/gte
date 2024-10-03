@@ -14,7 +14,8 @@ type Socket interface {
 type Connection interface {
 	Socket
 
-	ID() int32
+	ID() uint64
 	Send(msgID uint16, data []byte) error
 	Stop()
+	BatchCommit() error
 }

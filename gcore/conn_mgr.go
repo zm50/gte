@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go75/gte/core"
+	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/trait"
 )
 
@@ -18,8 +19,11 @@ type ConnMgr struct {
 
 	events []syscall.EpollEvent
 
-	headerTimeout time.Duration
-	bodyTimeout time.Duration
+	readTimeout time.Duration
+	maxReadTimeout time.Duration
+
+	readDeadline time.Time
+	maxReadDeadline time.Time
 
 	dispatcher trait.Dispatcher
 
@@ -37,12 +41,17 @@ func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
 		return nil, err
 	}
 
+	readTimeout := time.Duration(gconf.Config.ReadTimeout()) * time.Millisecond
+	maxReadTimeout := time.Duration(gconf.Config.MaxReadTimeout()) * time.Millisecond
+
 	// 创建一个连接管理器
 	connMgr := &ConnMgr{
 		fd: epfd,
 		timeout: timeout,
 		events: make([]syscall.EpollEvent, eventSize),
 		connShards: core.NewKVShards[int32, trait.Connection](32),
+		readTimeout: readTimeout,
+		maxReadTimeout: maxReadTimeout,
 	}
 
 	return connMgr, nil
@@ -104,8 +113,8 @@ func (e *ConnMgr) Wait() (int, error) {
 
 // BatchCommit 批量处理待读取的连接
 func (e *ConnMgr) BatchCommit(n int) {
-	e.dispatcher.SetHeaderDeadline(time.Now().Add(e.headerTimeout))
-	e.dispatcher.SetBodyDeadline(time.Now().Add(e.bodyTimeout))
+	e.readDeadline = time.Now().Add(e.readTimeout)
+	e.maxReadDeadline = time.Now().Add(e.maxReadTimeout)
 
 	for n > 0 {
 		n--
@@ -118,6 +127,8 @@ func (e *ConnMgr) BatchCommit(n int) {
 
 		// 提交待读取的连接
 		e.dispatcher.Commit(conn)
+
+		time.Sleep(e.maxReadTimeout)
 	}
 }
 
@@ -142,4 +153,14 @@ func (e *ConnMgr) Stop() {
 	}
 
 	syscall.Close(e.fd)
+}
+
+// ReadDeadline 头部超时时间
+func (e *ConnMgr) ReadDeadline() time.Time {
+	return e.readDeadline
+}
+
+// MaxReadDeadline 主体超时时间
+func (e *ConnMgr) MaxReadDeadline() time.Time {
+	return e.maxReadDeadline
 }
