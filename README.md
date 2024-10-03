@@ -1,3 +1,5 @@
+![logo](/docs/gte_logo.png)
+
 [![License](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 
 GTE is a lightweight concurrent server framework based on Go language and epoll.
