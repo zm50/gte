@@ -8,6 +8,8 @@ type RouterGroup struct {
 	baseTaskFlow trait.TaskFlow
 }
 
+var _ trait.RouterGroup = (*RouterGroup)(nil)
+
 // NewRouterGroup 创建路由组
 func NewRouterGroup(engine trait.Engine) trait.RouterGroup {
 	return &RouterGroup{
