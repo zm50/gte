@@ -11,7 +11,7 @@ import (
 	"github.com/go75/gte/trait"
 )
 
-// Dispatcher 消息分发模块，负责读取客户端连接的数据，并对数据进行拆包转换成消息格式，然后分发给下游的任务处理模块对消息进行业务处理
+// Dispatcher 请求分发模块，负责读取客户端连接的数据，并对数据进行拆包转换成消息格式，然后分发给下游的任务处理模块对消息进行业务处理
 type Dispatcher struct {
 	headerDeadline time.Time
 	bodyDeadline time.Time
@@ -22,7 +22,7 @@ type Dispatcher struct {
 
 var _ trait.Dispatcher = (*Dispatcher)(nil)
 
-// NewDispatcher 创建一个消息分发器
+// NewDispatcher 创建一个请求分发器
 func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
 	connQueue := make([]chan trait.Connection, global.Config.DispatcherQueues)
 	for i := 0; i < len(connQueue); i++ {
@@ -35,7 +35,7 @@ func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
 	}
 }
 
-// Start 启动消息分发模块
+// Start 启动请求分发模块
 func (d *Dispatcher) Start() {
 	for i := 0; i < len(d.connQueue); i++ {
 		for j := 0; j < global.Config.DispatcherQueueLen; j++ {
@@ -52,7 +52,7 @@ func (d *Dispatcher) Dispatch(connQueue chan trait.Connection) {
 	}
 }
 
-// BatchDispatch 批量分发连接中的数据
+// BatchDispatch 批量读取连接中的数据，并封装成请求，然后分发请求
 func (d *Dispatcher) BatchDispatch(conn trait.Connection) error {
 	for time.Now().After(d.headerDeadline) {
 		header := make([]byte, 4)
