@@ -9,4 +9,5 @@ type TaskFlow interface {
 	Append(fs ...TaskFunc) TaskFlow
 	Execute(idx int, ctx Context)
 	Len() int
+	Funcs() []TaskFunc
 }

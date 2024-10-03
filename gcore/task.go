@@ -1,4 +1,4 @@
-package gnet
+package gcore
 
 import "github.com/go75/gte/trait"
 
@@ -12,23 +12,23 @@ func (h TaskFunc) Execute(ctx trait.Context) {
 
 var _ trait.TaskFunc = TaskFunc(nil)
 
-// TaskFlow 任务流
+// TaskFlow 任务执行流
 type TaskFlow []trait.TaskFunc
 
 var _ trait.TaskFlow = (*TaskFlow)(nil)
 
-// NewTaskFlow 创建任务流
+// NewTaskFlow 创建任务执行流
 func NewTaskFlow(fs ...trait.TaskFunc) trait.TaskFlow {
 	flow := TaskFlow(fs)
 	return &flow
 }
 
-// Extend 扩展任务流
+// Extend 扩展任务执行流
 func (h *TaskFlow) Extend(fs ...trait.TaskFunc) {
 	*h = append(*h, fs...)
 }
 
-// Append 追加任务流
+// Append 追加任务执行流
 func (h *TaskFlow) Append(fs ...trait.TaskFunc) trait.TaskFlow {
 	flow := make([]trait.TaskFunc, h.Len() + len(fs))
 	copy(flow[:h.Len()], *h)
@@ -42,7 +42,12 @@ func (h *TaskFlow) Execute(idx int, ctx trait.Context) {
 	(*h)[idx].Execute(ctx)
 }
 
-// Len 任务流长度
+// Len 任务任务执行流
 func (h *TaskFlow) Len() int {
 	return len(*h)
+}
+
+// Funcs 获取所有任务执行逻辑
+func (h *TaskFlow) Funcs() []trait.TaskFunc {
+	return *h
 }

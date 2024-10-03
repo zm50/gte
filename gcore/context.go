@@ -1,4 +1,4 @@
-package gnet
+package gcore
 
 import (
 	"github.com/go75/gte/constant"

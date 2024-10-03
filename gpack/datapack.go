@@ -1,4 +1,4 @@
-package gnet
+package gpack
 
 import (
 	"encoding/binary"
@@ -32,11 +32,8 @@ func Pack(msg trait.Message) []byte {
 // 拆包
 func Unpack(header []byte, body []byte) trait.Message {
 	// read data  id (2 byte) and len (2 bytes)
-	msg := &Message{
-		id: binary.BigEndian.Uint16(header[:2]),
-		dataLen: binary.BigEndian.Uint16(header[2:4]),
-		data: body,
-	}
+	id := binary.BigEndian.Uint16(header[:2])
+	msg := NewMessage(id, body)
 
 	return msg
 }

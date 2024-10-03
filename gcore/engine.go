@@ -1,4 +1,4 @@
-package gnet
+package gcore
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 
 // Engine 服务器引擎接口实现
 type Engine struct {
-	trait.RouterGroup
 	address net.TCPAddr
 	version string
 
@@ -22,11 +21,8 @@ var _ trait.Engine = (*Engine)(nil)
 
 // NewEngine 创建一个新的服务器引擎实例
 func NewEngine(ip string, port int, version string) (trait.Engine, error) {
-	// 新建任务处理路由器
-	router := NewRouter()
-
 	// 新建任务管理器
-	taskMgr := NewTaskMgr(router)
+	taskMgr := NewTaskMgr()
 	
 	connMgr, err := NewConnMgr(global.Config.EpollTimeout, global.Config.EpollEventSize)
 	if err != nil {
@@ -43,8 +39,6 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 		connMgr: connMgr,
 		taskMgr: taskMgr,
 	}
-
-	engine.RouterGroup = NewRouterGroup(engine)
 
 	return engine, nil
 }
@@ -67,6 +61,31 @@ func (e *Engine) Run() error {
 // Stop 停止服务器引擎
 func (e *Engine) Stop() {
 	
+}
+
+// Regist 注册任务处理逻辑
+func (e *Engine) Regist(id uint16, flow ...trait.TaskFunc) {
+	e.taskMgr.Regist(id, flow...)
+}
+
+// RegistFlow 注册任务处理流
+func (e *Engine) RegistFlow(id uint16, flow trait.TaskFlow) {
+	e.taskMgr.RegistFlow(id, flow)
+}
+
+// TaskFlow 获取任务处理流
+func (e *Engine) TaskFlow(id uint16) trait.TaskFlow {
+	return e.taskMgr.TaskFlow(id)
+}
+
+// Group 路由分组
+func (e *Engine) Group(flow ...trait.TaskFunc) trait.RouterGroup {
+	return e.taskMgr.Group(flow...)
+}
+
+// Use 注册插件
+func (e *Engine) Use(flow ...trait.TaskFunc) {
+	e.taskMgr.Use(flow...)
 }
 
 // acceptConn 监听阻塞客户端连接

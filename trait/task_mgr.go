@@ -1,8 +1,9 @@
 package trait
 
 type TaskMgr interface {
+	RouterGroup
+
 	Start()
 	StartWorker(taskQueue chan Request)
 	Submit(request Request)
-	Regist(id uint16, flow TaskFlow)
 }

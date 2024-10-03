@@ -1,4 +1,4 @@
-package gnet
+package gpack
 
 import "github.com/go75/gte/trait"
 

@@ -1,9 +1,10 @@
-package gnet
+package gcore
 
 import (
 	"errors"
 	"sync"
 
+	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 )
 
@@ -11,7 +12,6 @@ import (
 type Connection struct {
 	// 底层连接的套接字
 	trait.Socket
-	trait.Context
 
 	// 连接的唯一标识
 	id int32
@@ -46,10 +46,10 @@ func (c *Connection) Send(msgID uint16, data []byte) error {
 	}
 
 	//封装message消息
-	message := NewMessage(msgID, data)
+	message := gpack.NewMessage(msgID, data)
 
 	//封包
-	response := Pack(message)
+	response := gpack.Pack(message)
 
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()

@@ -1,19 +1,20 @@
-package gnet
+package gcore
 
 import "github.com/go75/gte/trait"
 
 // RouterGroup 路由组
 type RouterGroup struct {
-	engine      trait.Engine
+	trait.Router
+
 	baseTaskFlow trait.TaskFlow
 }
 
 var _ trait.RouterGroup = (*RouterGroup)(nil)
 
 // NewRouterGroup 创建路由组
-func NewRouterGroup(engine trait.Engine) trait.RouterGroup {
+func NewRouterGroup(engine trait.Router) trait.RouterGroup {
 	return &RouterGroup{
-		engine:      engine,
+		Router:   NewRouter(),
 		baseTaskFlow: NewTaskFlow(),
 	}
 }
@@ -21,24 +22,24 @@ func NewRouterGroup(engine trait.Engine) trait.RouterGroup {
 // Group 子路由组
 func (g *RouterGroup) Group(flow ...trait.TaskFunc) trait.RouterGroup {
 	group := &RouterGroup{
-		engine:      g.engine,
+		Router:   g.Router,
 		baseTaskFlow: g.baseTaskFlow.Append(flow...),
 	}
 
 	return group
 }
 
-// Use 注册中间件
+// Use 注册插件
 func (g *RouterGroup) Use(flow ...trait.TaskFunc) {
 	g.baseTaskFlow = g.baseTaskFlow.Append(flow...)
 }
 
-// Regist 注册任务流
+// Regist 注册任务执行逻辑
 func (g *RouterGroup) Regist(id uint16, flow ...trait.TaskFunc) {
-	g.RegistFlow(id, g.baseTaskFlow.Append(flow...))
+	g.Router.Regist(id, g.baseTaskFlow.Append(flow...).Funcs()...)
 }
 
-// RegistFlow 注册任务流
+// RegistFlow 注册任务执行流
 func (g *RouterGroup) RegistFlow(id uint16, flow trait.TaskFlow) {
-	g.engine.RegistFlow(id, flow)
+	g.Router.RegistFlow(id, flow)
 }

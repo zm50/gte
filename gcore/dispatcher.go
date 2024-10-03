@@ -1,4 +1,4 @@
-package gnet
+package gcore
 
 import (
 	"encoding/binary"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go75/gte/global"
+	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 )
 
@@ -81,7 +82,7 @@ func (d *Dispatcher) BatchDispatch(conn trait.Connection) error {
 			return err
 		}
 
-		msg := Unpack(header, body)
+		msg := gpack.Unpack(header, body)
 		// 提交消息，处理数据
 		
 		request := NewRequest(conn, msg)
