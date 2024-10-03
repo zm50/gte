@@ -6,6 +6,7 @@ type TaskFunc interface {
 
 type TaskFlow interface {
 	Extend(...TaskFunc)
+	Append(fs ...TaskFunc) TaskFlow
 	Execute(idx int, ctx Context)
 	Len() int
 }

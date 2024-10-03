@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/go75/gte/global"
 	"github.com/go75/gte/trait"
 )
 
 // Engine 服务器引擎接口实现
 type Engine struct {
+	trait.RouterGroup
 	address net.TCPAddr
 	version string
 
@@ -26,7 +28,7 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 	// 新建任务管理器
 	taskMgr := NewTaskMgr(router)
 	
-	connMgr, err := NewConnMgr(-1, 100)
+	connMgr, err := NewConnMgr(global.Config.EpollTimeout, global.Config.EpollEventSize)
 	if err != nil {
 		fmt.Println("NewConnMgr error:", err)
 		return nil, err
@@ -42,12 +44,9 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 		taskMgr: taskMgr,
 	}
 
-	return engine, nil
-}
+	engine.RouterGroup = NewRouterGroup(engine)
 
-// Regist 注册任务流
-func (e *Engine) Regist(id uint16, flow ...trait.TaskFunc) {
-	e.taskMgr.Regist(id, NewTaskFlow(flow...))
+	return engine, nil
 }
 
 // Run 启动服务器引擎
@@ -63,11 +62,6 @@ func (e *Engine) Run() error {
 	e.acceptConn(listener)
 
 	return nil
-}
-
-// Use 注册插件
-func (e *Engine) Use() {
-	
 }
 
 // Stop 停止服务器引擎

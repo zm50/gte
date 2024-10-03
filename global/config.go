@@ -11,6 +11,8 @@ import (
 type ServerConfig struct {
 	MaxConns int
 	MaxPacketSize int
+	EpollTimeout int
+	EpollEventSize int
 	DispatcherQueues int
 	DispatcherQueueLen int
 	WorkersPerDispatcherQueue int
@@ -23,6 +25,9 @@ type ServerConfig struct {
 var Config = &ServerConfig{
 	MaxConns: 1024,
 	MaxPacketSize: 4096,
+
+	EpollTimeout: -1,
+	EpollEventSize: 1024,
 
 	DispatcherQueues: 10,
 	DispatcherQueueLen: 100,
