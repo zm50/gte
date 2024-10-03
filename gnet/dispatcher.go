@@ -81,7 +81,7 @@ func (d *Dispatcher) BatchDispatch(conn trait.Connection) error {
 			return err
 		}
 
-		msg := unpack(header, body)
+		msg := Unpack(header, body)
 		// 提交消息，处理数据
 		
 		request := NewRequest(conn, msg)

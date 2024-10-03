@@ -30,8 +30,8 @@ func Pack(msg trait.Message) []byte {
 }
 
 // 拆包
-func unpack(header []byte, body []byte) trait.Message {
-	// read data  id (1 byte) and len (2 bytes)
+func Unpack(header []byte, body []byte) trait.Message {
+	// read data  id (2 byte) and len (2 bytes)
 	msg := &Message{
 		id: binary.BigEndian.Uint16(header[:2]),
 		dataLen: binary.BigEndian.Uint16(header[2:4]),
