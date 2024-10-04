@@ -16,4 +16,5 @@ type ConnMgr interface {
 	StartConnSignalHookWorker(<- chan ConnSignal)
 	OnConnStart(func(conn Connection))
 	OnConnStop(func(conn Connection))
+	ChooseConnSignalQueue(connID uint64) chan <- ConnSignal
 }

@@ -100,7 +100,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 	e.connShards.Set(int32(fd), conn)
 
 	// 通知连接信号处理队列
-	e.connSignalQueue[conn.ID()%uint64(len(e.connSignalQueue))] <- NewConnSignal(conn, constant.ConnStartSignal)
+	e.ChooseConnSignalQueue(conn.ID()) <- NewConnSignal(conn, constant.ConnStartSignal)
 
 	return nil
 }
@@ -110,7 +110,7 @@ func (e *ConnMgr) Del(fd int) error {
 	// 通知连接信号处理队列
 	conn, ok := e.Get(int32(fd))
 	if ok {
-		e.connSignalQueue[conn.ID()%uint64(len(e.connSignalQueue))] <- NewConnSignal(conn, constant.ConnStopSignal)
+		e.ChooseConnSignalQueue(conn.ID()) <- NewConnSignal(conn, constant.ConnStopSignal)
 	} else {
 		fmt.Println("call conn stop hook failed, connection not found, conn fd:", fd)
 	}
@@ -209,12 +209,12 @@ func (m *ConnMgr) StartConnSignalHookWorker(connSignalQueue <- chan trait.ConnSi
 	for conn := range connSignalQueue {
 		switch conn.Signal() {
 		case constant.ConnStartSignal:
-			if m.connStopHook != nil {
-				m.connStopHook(conn)
-			}
-		case constant.ConnStopSignal:
 			if m.connStartHook != nil {
 				m.connStartHook(conn)
+			}
+		case constant.ConnStopSignal:
+			if m.connStopHook != nil {
+				m.connStopHook(conn)
 			}
 		default:
 			fmt.Printf("unknown conn signal %d, connetion id %d\n", conn.Signal(), conn.ID())
@@ -230,4 +230,9 @@ func (m *ConnMgr) OnConnStart(fn func(conn trait.Connection)) {
 // OnConnStop 注册连接断开触发的钩子回调
 func (m *ConnMgr) OnConnStop(fn func(conn trait.Connection)) {
 	m.connStopHook = fn
+}
+
+// ChooseConnSignalQueue 选择连接信号处理队列
+func (m *ConnMgr) ChooseConnSignalQueue(connID uint64) chan <- trait.ConnSignal {
+	return m.connSignalQueue[connID%uint64(len(m.connSignalQueue))]
 }
