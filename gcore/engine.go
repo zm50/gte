@@ -54,7 +54,7 @@ func NewEngine(ip string, port int, version string) (trait.Engine, error) {
 func (e *Engine) Run() error {
 	fmt.Printf("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
 
-	e.connMgr.Start()
+	go e.connMgr.Start()
 
 	err := e.gateway.ListenAndServe()
 	if err != nil {

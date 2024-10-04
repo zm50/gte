@@ -12,9 +12,9 @@ type RouterGroup struct {
 var _ trait.RouterGroup = (*RouterGroup)(nil)
 
 // NewRouterGroup 创建路由组
-func NewRouterGroup(engine trait.Router) trait.RouterGroup {
+func NewRouterGroup(rootRouter trait.Router) trait.RouterGroup {
 	return &RouterGroup{
-		Router:   NewRouter(),
+		Router:   rootRouter,
 		baseTaskFlow: NewTaskFlow(),
 	}
 }

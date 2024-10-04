@@ -22,8 +22,8 @@ func NewTaskMgr() trait.TaskMgr {
 	}
 
 	// 新建任务处理路由器与分组路由
-	router := NewRouter()
-	routerGroup := NewRouterGroup(router)
+	rootRouter := NewRouter()
+	routerGroup := NewRouterGroup(rootRouter)
 
 	return &TaskMgr{
 		RouterGroup: routerGroup,

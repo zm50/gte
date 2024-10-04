@@ -3,6 +3,7 @@ package gcore
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -134,6 +135,9 @@ func (e *ConnMgr) BatchCommit(n int) {
 
 // Start 启动连接管理器
 func (e *ConnMgr) Start() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	for {
 		n, err := e.Wait()
 		if err != nil {
