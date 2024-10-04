@@ -85,6 +85,25 @@ func (c *ServerConfig) Load(filePath string) error {
 	return nil
 }
 
+// Export 导出配置到文件
+func (c *ServerConfig) Export(filePath string) error {
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		// 配置文件导出失败
+		fmt.Println("config file export failed")
+		return err
+	}
+
+	err = os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		// 配置文件保存失败
+		fmt.Println("config file save failed")
+		return err
+	}
+
+	return nil
+}
+
 func (c *ServerConfig) ListenIP() string {
 	return c.listenIP
 }

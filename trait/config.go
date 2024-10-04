@@ -2,6 +2,7 @@ package trait
 
 type ServerConfig interface {
 	Load(filePath string) error
+	Export(filePath string) error
 
 	ListenIP() string
 	ListenPort() int
