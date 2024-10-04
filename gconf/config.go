@@ -24,10 +24,14 @@ type ServerConfig struct {
 	epollEventSize int
 	dispatcherQueues int
 	dispatcherQueueLen int
+	workersPerDispatcherQueue int
 	taskQueues int
 	taskQueueLen int
 	workersPerTaskQueue int
 	websocketQueueLen int
+	connSignalQueues int
+	connSignalQueueLen int
+	workersPerConnSignalQueue int
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
@@ -49,12 +53,17 @@ var Config trait.ServerConfig = &ServerConfig{
 
 	dispatcherQueues: 8,
 	dispatcherQueueLen: 128,
+	workersPerDispatcherQueue: 2,
 
-	taskQueues: 16,
+	taskQueues: 8,
 	taskQueueLen: 128,
 	workersPerTaskQueue: 8,
 
 	websocketQueueLen: 16,
+
+	connSignalQueues: 2,
+	connSignalQueueLen: 4,
+	workersPerConnSignalQueue: 2,
 }
 
 // Load 从配置文件中加载配置
@@ -124,6 +133,10 @@ func (c *ServerConfig) DispatcherQueueLen() int {
 	return c.dispatcherQueueLen
 }
 
+func (c *ServerConfig) WorkersPerDispatcherQueue() int {
+	return c.workersPerDispatcherQueue
+}
+
 func (c *ServerConfig) TaskQueues() int {
 	return c.taskQueues
 }
@@ -138,6 +151,18 @@ func (c *ServerConfig) WorkersPerTaskQueue() int {
 
 func (c *ServerConfig) WebsocketQueueLen() int {
 	return c.websocketQueueLen
+}
+
+func (c *ServerConfig) ConnSignalQueues() int {
+	return c.connSignalQueues
+}
+
+func (c *ServerConfig) ConnSignalQueueLen() int {
+	return c.connSignalQueueLen
+}
+
+func (c *ServerConfig) WorkersPerConnSignalQueue() int {
+	return c.workersPerConnSignalQueue
 }
 
 func (c *ServerConfig) WithListenIP(listenIP string) trait.ServerConfig {
@@ -200,6 +225,11 @@ func (c *ServerConfig) WithDispatcherQueueLen(dispatcherQueueLen int) trait.Serv
 	return c
 }
 
+func (c *ServerConfig) WithWorkersPerDispatcherQueue(workersPerDispatcherQueue int) trait.ServerConfig {
+	c.workersPerDispatcherQueue = workersPerDispatcherQueue
+	return c
+}
+
 func (c *ServerConfig) WithTaskQueues(taskQueues int) trait.ServerConfig {
 	c.taskQueues = taskQueues
 	return c
@@ -217,5 +247,20 @@ func (c *ServerConfig) WithWorkersPerTaskQueue(workersPerTaskQueue int) trait.Se
 
 func (c *ServerConfig) WithWebsocketQueueLen(websocketQueueLen int) trait.ServerConfig {
 	c.websocketQueueLen = websocketQueueLen
+	return c
+}
+
+func (c *ServerConfig) WithConnSignalQueues(connSignalQueues int) trait.ServerConfig {
+	c.connSignalQueues = connSignalQueues
+	return c
+}
+
+func (c *ServerConfig) WithConnSignalQueueLen(connSignalQueueLen int) trait.ServerConfig {
+	c.connSignalQueueLen = connSignalQueueLen
+	return c
+}
+
+func (c *ServerConfig) WithWorkersPerConnSignalQueue(workersPerConnSignalQueue int) trait.ServerConfig {
+	c.workersPerConnSignalQueue = workersPerConnSignalQueue
 	return c
 }

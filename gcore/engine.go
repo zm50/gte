@@ -89,3 +89,13 @@ func (e *Engine) Group(flow ...trait.TaskFunc) trait.RouterGroup {
 func (e *Engine) Use(flow ...trait.TaskFunc) {
 	e.taskMgr.Use(flow...)
 }
+
+// OnConnStart 注册连接建立的回调函数
+func (e *Engine) OnConnStart(fn func(conn trait.Connection)) {
+	e.connMgr.OnConnStart(fn)
+}
+
+// OnConnStop 注册连接断开的回调函数
+func (e *Engine) OnConnStop(fn func(conn trait.Connection)) {
+	e.connMgr.OnConnStop(fn)
+}

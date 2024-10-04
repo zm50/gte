@@ -41,7 +41,7 @@ func (m *TaskMgr) Start() {
 }
 
 // StartWorker 启动任务消费者
-func (m *TaskMgr) StartWorker(taskQueue chan trait.Request) {
+func (m *TaskMgr) StartWorker(taskQueue <- chan trait.Request) {
 	for request := range taskQueue {
 		flow := m.TaskFlow(request.ID())
 		ctx := NewContext(request, flow)

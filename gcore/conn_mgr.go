@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go75/gte/constant"
 	"github.com/go75/gte/core"
 	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/trait"
@@ -14,7 +15,7 @@ import (
 
 // ConnMgr 连接管理模块，管理客户端的连接，监听待读取数据的连接，并将连接提交给下游的消息分发模块进行处理
 type ConnMgr struct {
-	fd int
+	epfd int
 
 	timeout int
 
@@ -30,6 +31,12 @@ type ConnMgr struct {
 
 	// key: fd, value: Conn
 	connShards *core.KVShards[int32, trait.Connection]
+
+	connStartHook func(conn trait.Connection)
+
+	connStopHook func(conn trait.Connection)
+
+	connSignalQueue  []chan trait.ConnSignal
 }
 
 var _ trait.ConnMgr = (*ConnMgr)(nil)
@@ -45,14 +52,20 @@ func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
 	readTimeout := time.Duration(gconf.Config.ReadTimeout()) * time.Millisecond
 	maxReadTimeout := time.Duration(gconf.Config.MaxReadTimeout()) * time.Millisecond
 
+	connSignalQueues := make([]chan trait.ConnSignal, gconf.Config.ConnSignalQueues())
+	for i := 0; i < len(connSignalQueues); i++ {
+		connSignalQueues[i] = make(chan trait.ConnSignal, gconf.Config.ConnSignalQueueLen())
+	}
+
 	// 创建一个连接管理器
 	connMgr := &ConnMgr{
-		fd: epfd,
+		epfd: epfd,
 		timeout: timeout,
 		events: make([]syscall.EpollEvent, eventSize),
 		connShards: core.NewKVShards[int32, trait.Connection](32),
 		readTimeout: readTimeout,
 		maxReadTimeout: maxReadTimeout,
+		connSignalQueue: connSignalQueues,
 	}
 
 	return connMgr, nil
@@ -79,23 +92,34 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 		Events: syscall.EPOLLIN,
 		Fd:     int32(fd),
 	}
-	err = syscall.EpollCtl(e.fd, syscall.EPOLL_CTL_ADD, int(fd), &event)
+	err = syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_ADD, int(fd), &event)
 	if err != nil {
 		return err
 	}
 
 	e.connShards.Set(int32(fd), conn)
 
+	// 通知连接信号处理队列
+	e.connSignalQueue[conn.ID()%uint64(len(e.connSignalQueue))] <- NewConnSignal(conn, constant.ConnStartSignal)
+
 	return nil
 }
 
 // Del 在连接管理器中删除连接
 func (e *ConnMgr) Del(fd int) error {
+	// 通知连接信号处理队列
+	conn, ok := e.Get(int32(fd))
+	if ok {
+		e.connSignalQueue[conn.ID()%uint64(len(e.connSignalQueue))] <- NewConnSignal(conn, constant.ConnStopSignal)
+	} else {
+		fmt.Println("call conn stop hook failed, connection not found, conn fd:", fd)
+	}
+
 	event := syscall.EpollEvent{
 		Events: syscall.EPOLLIN,
 		Fd:     int32(fd),
 	}
-	err := syscall.EpollCtl(e.fd, syscall.EPOLL_CTL_DEL, fd, &event)
+	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, fd, &event)
 	if err != nil {
 		return err
 	}
@@ -107,7 +131,7 @@ func (e *ConnMgr) Del(fd int) error {
 
 // Wait 等待事件发生
 func (e *ConnMgr) Wait() (int, error) {
-	n, err := syscall.EpollWait(e.fd, e.events, e.timeout)
+	n, err := syscall.EpollWait(e.epfd, e.events, e.timeout)
 
 	return n, err
 }
@@ -138,6 +162,8 @@ func (e *ConnMgr) Start() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	go e.StartConnSignalHookWorkers()
+
 	for {
 		n, err := e.Wait()
 		if err != nil {
@@ -156,7 +182,7 @@ func (e *ConnMgr) Stop() {
 		conn.Close()
 	}
 
-	syscall.Close(e.fd)
+	syscall.Close(e.epfd)
 }
 
 // ReadDeadline 头部超时时间
@@ -167,4 +193,41 @@ func (e *ConnMgr) ReadDeadline() time.Time {
 // MaxReadDeadline 主体超时时间
 func (e *ConnMgr) MaxReadDeadline() time.Time {
 	return e.maxReadDeadline
+}
+
+// StartConnSignalHookWorkers 启动连接信号钩子消费者工作池
+func (e *ConnMgr) StartConnSignalHookWorkers() {
+	for i := 0; i < len(e.connSignalQueue); i++ {
+		for j := 0; j < gconf.Config.WorkersPerConnSignalQueue(); j++ {
+			go e.StartConnSignalHookWorker(e.connSignalQueue[i])
+		}
+	}
+}
+
+// StartConnSignalHookWorker 启动连接信号钩子消费者
+func (m *ConnMgr) StartConnSignalHookWorker(connSignalQueue <- chan trait.ConnSignal) {
+	for conn := range connSignalQueue {
+		switch conn.Signal() {
+		case constant.ConnStartSignal:
+			if m.connStopHook != nil {
+				m.connStopHook(conn)
+			}
+		case constant.ConnStopSignal:
+			if m.connStartHook != nil {
+				m.connStartHook(conn)
+			}
+		default:
+			fmt.Printf("unknown conn signal %d, connetion id %d\n", conn.Signal(), conn.ID())
+		}
+	}
+}
+
+// OnConnStart 注册连接建立触发的钩子回调
+func (m *ConnMgr) OnConnStart(fn func(conn trait.Connection)) {
+	m.connStartHook = fn
+}
+
+// OnConnStop 注册连接断开触发的钩子回调
+func (m *ConnMgr) OnConnStop(fn func(conn trait.Connection)) {
+	m.connStopHook = fn
 }

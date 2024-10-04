@@ -12,4 +12,8 @@ type ConnMgr interface {
 	Stop()
 	ReadDeadline() time.Time
 	MaxReadDeadline() time.Time
+	StartConnSignalHookWorkers()
+	StartConnSignalHookWorker(<- chan ConnSignal)
+	OnConnStart(func(conn Connection))
+	OnConnStop(func(conn Connection))
 }
