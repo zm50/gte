@@ -1,6 +1,8 @@
 package gcore
 
-import "github.com/go75/gte/trait"
+import (
+	"github.com/go75/gte/trait"
+)
 
 // RouterGroup 路由组
 type RouterGroup struct {

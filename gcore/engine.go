@@ -17,10 +17,8 @@ type Engine struct {
 	taskMgr trait.TaskMgr
 }
 
-var _ trait.Engine = (*Engine)(nil)
-
 // NewEngine 创建一个新的服务器引擎实例
-func NewEngine(ip string, port int, version string) (trait.Engine, error) {
+func NewEngine() (*Engine, error) {
 	// 新建任务管理器
 	taskMgr := NewTaskMgr()
 	
@@ -66,8 +64,10 @@ func (e *Engine) Run() error {
 }
 
 // Regist 注册任务处理逻辑
-func (e *Engine) Regist(id uint16, flow ...trait.TaskFunc) {
-	e.taskMgr.Regist(id, flow...)
+func (e *Engine) Regist(id uint16, flow ...TaskFunc) {
+	for _, fn := range flow {
+		e.taskMgr.Regist(id, fn)
+	}
 }
 
 // RegistFlow 注册任务处理流

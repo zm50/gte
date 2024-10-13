@@ -19,7 +19,7 @@ func NewRouter() trait.Router {
 // Regist 注册任务执行逻辑
 func (r *Router) Regist(id uint16, flow ...trait.TaskFunc) {
 	if _, ok := r.apis[id]; ok {
-		r.apis[id].Extend(flow...)
+		r.apis[id] = r.apis[id].Append(flow...)
 	} else {
 		r.apis[id] = NewTaskFlow(flow...)
 	}
@@ -32,5 +32,5 @@ func (r *Router) RegistFlow(id uint16, flow trait.TaskFlow) {
 
 // TaskFlow 根据消息ID获取任务执行流
 func (r *Router) TaskFlow(id uint16) trait.TaskFlow {
-	return r.apis[id]
+	return r.apis[id].Fork()
 }
