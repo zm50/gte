@@ -44,6 +44,7 @@ func (k *KeepAliveMgr) StartWorker(connShard *core.KVShard[int32, trait.Connecti
 			} else if conn.IsInspect() {
 				// 设置为非活跃状态
 				conn.SetState(constant.ConnNotActiveState)
+				k.connMgr.PushConnSignal(NewConnSignal(conn, constant.ConnNotActiveSignal))
 			}
 		})
 	}
