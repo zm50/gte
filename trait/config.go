@@ -24,6 +24,8 @@ type ServerConfig interface {
 	ConnSignalQueues() int
 	ConnSignalQueueLen() int
 	WorkersPerConnSignalQueue() int
+	ConnShardCount() int
+	HealthCheckInterval() int
 
 	WithListenIP(string) ServerConfig
 	WithListenPort(int) ServerConfig
@@ -45,4 +47,6 @@ type ServerConfig interface {
 	WithConnSignalQueues(int) ServerConfig
 	WithConnSignalQueueLen(int) ServerConfig
 	WithWorkersPerConnSignalQueue(int) ServerConfig
+	WithConnShardCount(connShardCount int) ServerConfig
+	WithHealthCheckInterval(int) ServerConfig
 }

@@ -32,6 +32,8 @@ type ServerConfig struct {
 	connSignalQueues int
 	connSignalQueueLen int
 	workersPerConnSignalQueue int
+	connShardCount int
+	healthCheckInterval int
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
@@ -64,6 +66,8 @@ var Config trait.ServerConfig = &ServerConfig{
 	connSignalQueues: 2,
 	connSignalQueueLen: 4,
 	workersPerConnSignalQueue: 2,
+	connShardCount: 16,
+	healthCheckInterval: 100000,
 }
 
 // Load 从配置文件中加载配置
@@ -184,6 +188,14 @@ func (c *ServerConfig) WorkersPerConnSignalQueue() int {
 	return c.workersPerConnSignalQueue
 }
 
+func (c *ServerConfig) ConnShardCount() int {
+	return c.connShardCount
+}
+
+func (c *ServerConfig) HealthCheckInterval() int {
+	return c.healthCheckInterval
+}
+
 func (c *ServerConfig) WithListenIP(listenIP string) trait.ServerConfig {
 	c.listenIP = listenIP
 	return c
@@ -281,5 +293,15 @@ func (c *ServerConfig) WithConnSignalQueueLen(connSignalQueueLen int) trait.Serv
 
 func (c *ServerConfig) WithWorkersPerConnSignalQueue(workersPerConnSignalQueue int) trait.ServerConfig {
 	c.workersPerConnSignalQueue = workersPerConnSignalQueue
+	return c
+}
+
+func (c *ServerConfig) WithConnShardCount(connShardCount int) trait.ServerConfig {
+	c.connShardCount = connShardCount
+	return c
+}
+
+func (c *ServerConfig) WithHealthCheckInterval(healthCheckInterval int) trait.ServerConfig {
+	c.healthCheckInterval = healthCheckInterval
 	return c
 }

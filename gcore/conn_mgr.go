@@ -36,6 +36,10 @@ type ConnMgr struct {
 
 	connStopHook func(conn trait.Connection)
 
+	connNotActiveHook func(conn trait.Connection)
+
+	keepAliveMgr trait.KeepAliveMgr
+
 	connSignalQueue  []chan trait.ConnSignal
 }
 
@@ -57,16 +61,20 @@ func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
 		connSignalQueues[i] = make(chan trait.ConnSignal, gconf.Config.ConnSignalQueueLen())
 	}
 
+	connShards := core.NewKVShards[int32, trait.Connection](gconf.Config.ConnShardCount())
+
 	// 创建一个连接管理器
 	connMgr := &ConnMgr{
 		epfd: epfd,
 		timeout: timeout,
 		events: make([]syscall.EpollEvent, eventSize),
-		connShards: core.NewKVShards[int32, trait.Connection](32),
+		connShards: connShards,
 		readTimeout: readTimeout,
 		maxReadTimeout: maxReadTimeout,
 		connSignalQueue: connSignalQueues,
 	}
+
+	connMgr.keepAliveMgr = NewKeepAliveMgr(connMgr, connShards.Shards())
 
 	return connMgr, nil
 }
@@ -92,7 +100,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 		Events: syscall.EPOLLIN,
 		Fd:     int32(fd),
 	}
-	err = syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_ADD, int(fd), &event)
+	err = syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_ADD | syscall.EPOLLRDHUP, int(fd), &event)
 	if err != nil {
 		return err
 	}
@@ -100,17 +108,17 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 	e.connShards.Set(int32(fd), conn)
 
 	// 通知连接信号处理队列
-	e.ChooseConnSignalQueue(conn.ID()) <- NewConnSignal(conn, constant.ConnStartSignal)
+	e.PushConnSignal(NewConnSignal(conn, constant.ConnStartSignal))
 
 	return nil
 }
 
 // Del 在连接管理器中删除连接
-func (e *ConnMgr) Del(fd int) error {
+func (e *ConnMgr) Del(fd int32) error {
 	// 通知连接信号处理队列
-	conn, ok := e.Get(int32(fd))
+	conn, ok := e.Get(fd)
 	if ok {
-		e.ChooseConnSignalQueue(conn.ID()) <- NewConnSignal(conn, constant.ConnStopSignal)
+		e.PushConnSignal(NewConnSignal(conn, constant.ConnStopSignal))
 	} else {
 		fmt.Println("call conn stop hook failed, connection not found, conn fd:", fd)
 	}
@@ -119,12 +127,12 @@ func (e *ConnMgr) Del(fd int) error {
 		Events: syscall.EPOLLIN,
 		Fd:     int32(fd),
 	}
-	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, fd, &event)
+	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, int(fd), &event)
 	if err != nil {
 		return err
 	}
 
-	e.connShards.Del(int32(fd))
+	e.connShards.Del(fd)
 
 	return nil
 }
@@ -143,7 +151,15 @@ func (e *ConnMgr) BatchCommit(n int) {
 
 	for n > 0 {
 		n--
-		fd := int32(e.events[n].Fd)
+		event := e.events[n]
+		fd := event.Fd
+
+		if event.Events & syscall.EPOLLRDHUP != 0 {
+			// 连接关闭事件处理
+			e.Del(event.Fd)
+			continue
+		}
+
 		conn, ok := e.Get(fd)
 		if !ok {
 			fmt.Println("connection not found:", fd)
@@ -161,6 +177,8 @@ func (e *ConnMgr) BatchCommit(n int) {
 func (e *ConnMgr) Start() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	e.keepAliveMgr.Start()
 
 	go e.StartConnSignalHookWorkers()
 
@@ -216,6 +234,10 @@ func (m *ConnMgr) StartConnSignalHookWorker(connSignalQueue <- chan trait.ConnSi
 			if m.connStopHook != nil {
 				m.connStopHook(conn)
 			}
+		case constant.ConnNotActiveSignal:
+			if m.connNotActiveHook != nil {
+				m.connNotActiveHook(conn)
+			}
 		default:
 			fmt.Printf("unknown conn signal %d, connetion id %d\n", conn.Signal(), conn.ID())
 		}
@@ -232,7 +254,17 @@ func (m *ConnMgr) OnConnStop(fn func(conn trait.Connection)) {
 	m.connStopHook = fn
 }
 
+// OnConnNotActive 注册连接不活跃触发的钩子回调
+func (m *ConnMgr) OnConnNotActive(fn func(conn trait.Connection)) {
+	m.connNotActiveHook = fn
+}
+
 // ChooseConnSignalQueue 选择连接信号处理队列
 func (m *ConnMgr) ChooseConnSignalQueue(connID uint64) chan <- trait.ConnSignal {
 	return m.connSignalQueue[connID%uint64(len(m.connSignalQueue))]
+}
+
+// PushConnSignal 推送连接信号
+func (m *ConnMgr) PushConnSignal(signal trait.ConnSignal) {
+	m.ChooseConnSignalQueue(signal.ID()) <- signal
 }

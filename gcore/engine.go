@@ -99,3 +99,8 @@ func (e *Engine) OnConnStart(fn func(conn trait.Connection)) {
 func (e *Engine) OnConnStop(fn func(conn trait.Connection)) {
 	e.connMgr.OnConnStop(fn)
 }
+
+// OnConnActive 注册连接变为不活跃状态的回调函数
+func (e *Engine) OnConnNotActive(fn func(conn trait.Connection)) {
+	e.connMgr.OnConnNotActive(fn)
+}

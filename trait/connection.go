@@ -15,7 +15,14 @@ type Connection interface {
 	Socket
 
 	ID() uint64
-	Send(msgID uint16, data []byte) error
+	Send(data []byte) error
+	SendMsg(msgID uint16, data []byte) error
 	Stop()
 	BatchCommit() error
+	IsActive() bool
+	IsNotActive() bool
+	IsInspect() bool
+	IsClose() bool
+	State() uint32
+	SetState(state uint32)
 }

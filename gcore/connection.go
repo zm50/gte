@@ -2,6 +2,7 @@ package gcore
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go75/gte/constant"
 	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 	"github.com/gorilla/websocket"
@@ -22,10 +24,9 @@ type TCPConnection struct {
 	// 底层连接的套接字
 	trait.Socket
 
-	isClosed bool
+	state *atomic.Uint32
 	//防止连接并发写的锁
 	writeLock sync.Mutex
-	exitCh   chan struct{}
 
 	connMgr trait.ConnMgr
 	taskMgr trait.TaskMgr
@@ -36,12 +37,14 @@ var _ trait.Connection = (*TCPConnection)(nil)
 
 // NewTCPConnection 创建一个新的连接对象
 func NewTCPConnection(connID uint64, socket trait.Socket, connMgr trait.ConnMgr, taskMgr trait.TaskMgr) trait.Connection {
+	state := &atomic.Uint32{}
+	state.Store(constant.ConnActiveState)
+
 	conn := &TCPConnection{
 		id: connID,
 		Socket: socket,
-		isClosed: false,
+		state: state,
 		writeLock: sync.Mutex{},
-		exitCh: make(chan struct{}, 1),
 		connMgr: connMgr,
 		taskMgr: taskMgr,
 		taskQueue: taskMgr.ChooseQueue(connID),
@@ -55,35 +58,45 @@ func (c *TCPConnection) ID() uint64 {
 	return c.id
 }
 
-// Send 发送消息给客户端
-func (c *TCPConnection) Send(msgID uint16, data []byte) error {
-	if c.isClosed {
+// Send 发送数据给客户端
+func (c *TCPConnection) Send(data []byte) error {
+	if !c.IsActive() {
 		return errors.New("connection is closed when send message")
 	}
 
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
+
+	_, err := c.Socket.Write(data)
+	if err != nil {
+		fmt.Printf("send data to conn %d err: %v\n", c.id, err)
+		return err
+	}
+
+	return nil
+}
+
+// SendMsg 发送消息给客户端
+func (c *TCPConnection) SendMsg(msgID uint16, data []byte) error {
 	//封装message消息
 	message := gpack.NewMessage(msgID, data)
 
 	//封包
 	response := gpack.Pack(message)
 
-	c.writeLock.Lock()
-	defer c.writeLock.Unlock()
-	_, err := c.Socket.Write(response)
+	err := c.Send(response)
 
 	return err
 }
 
 // Stop 关闭连接
 func (c *TCPConnection) Stop() {
-	if c.isClosed {
+	if !c.IsActive() {
 		return
 	}
 
-	c.isClosed = true
+	c.SetState(constant.ConnCloseState)
 	c.Socket.Close()
-
-	close(c.exitCh)
 }
 
 // BatchCommit 批量提交消息
@@ -125,6 +138,36 @@ func (c *TCPConnection) BatchCommit() error {
 	return nil
 }
 
+// IsActive 连接是否活跃
+func (c *TCPConnection) IsActive() bool {
+	return c.state.Load() == constant.ConnActiveState
+}
+
+// IsNotActive 连接是否不活跃
+func (c *TCPConnection) IsNotActive() bool {
+	return c.state.Load() == constant.ConnNotActiveState
+}
+
+// IsInspect 连接是否处于检查状态
+func (c *TCPConnection) IsInspect() bool {
+	return c.state.Load() == constant.ConnInspectState
+}
+
+// IsClose 连接是否关闭
+func (c *TCPConnection) IsClose() bool {
+	return c.state.Load() == constant.ConnCloseState
+}
+
+// State 获取连接状态
+func (c *TCPConnection) State() uint32 {
+	return c.state.Load()
+}
+
+// SetState 设置连接状态
+func (c *TCPConnection) SetState(state uint32) {
+	c.state.Store(state)
+}
+
 // Websocket websocket连接
 type WebsocketConnection struct {
 	// 连接的唯一标识
@@ -135,7 +178,7 @@ type WebsocketConnection struct {
 	//防止连接并发写的锁
 	writeLock sync.Mutex
 
-	isActive atomic.Bool
+	state *atomic.Uint32
 
 	connMgr trait.ConnMgr
 	taskMgr trait.TaskMgr
@@ -145,14 +188,14 @@ type WebsocketConnection struct {
 var _ trait.Socket = (*WebsocketConnection)(nil)
 
 func NewWebsocketConnection(connID uint64, conn *websocket.Conn, connMgr trait.ConnMgr, taskMgr trait.TaskMgr) trait.Connection {
-	isActive := atomic.Bool{}
-	isActive.Store(true)
+	state := &atomic.Uint32{}
+	state.Store(constant.ConnActiveState)
 
 	return &WebsocketConnection{
 		id: connID,
 		Conn: conn,
 		writeLock: sync.Mutex{},
-		isActive: atomic.Bool{},
+		state: state,
 		connMgr: connMgr,
 		taskMgr: taskMgr,
 		taskQueue: taskMgr.ChooseQueue(connID),
@@ -166,7 +209,7 @@ func (w *WebsocketConnection) Read(b []byte) (n int, err error) {
 	}
 
 	if messageType == websocket.BinaryMessage {
-		w.isActive.Store(true)
+		w.SetState(constant.ConnActiveState)
 		return 0, errors.New("not support message type")
 	}
 
@@ -214,27 +257,44 @@ func (w *WebsocketConnection) ID() uint64 {
 	return w.id
 }
 
-func (w *WebsocketConnection) Send(msgID uint16, data []byte) error {
-	if !w.isActive.Load() {
+// Send 发送数据给客户端
+func (w *WebsocketConnection) Send(data []byte) error {
+	if !w.IsActive() {
 		return errors.New("connection is closed when send message")
 	}
 
+	w.writeLock.Lock()
+	defer w.writeLock.Unlock()
+
+	_, err := w.Write(data)
+	if err != nil {
+		fmt.Printf("send data to conn %d err: %v\n", w.id, err)
+		return err
+	}
+
+	return nil
+}
+
+// SendMsg 发送消息给客户端
+func (w *WebsocketConnection) SendMsg(msgID uint16, data []byte) error {
 	//封装message消息
 	message := gpack.NewMessage(msgID, data)
 
 	//封包
 	response := gpack.Pack(message)
 
-	w.writeLock.Lock()
-	defer w.writeLock.Unlock()
-	err := w.Conn.WriteMessage(websocket.BinaryMessage, response)
+	err := w.Send(response)
 
 	return err
 }
 
 func (w *WebsocketConnection) Stop() {
-	w.isActive.Store(false)
-	w.Conn.Close()
+	if !w.IsActive() {
+		return
+	}
+
+	w.SetState(constant.ConnCloseState)
+	w.Close()
 }
 
 func (w *WebsocketConnection) BatchCommit() error {
@@ -247,7 +307,7 @@ func (w *WebsocketConnection) BatchCommit() error {
 		}
 	
 		if messageType == websocket.BinaryMessage {
-			w.isActive.Store(true)
+			w.SetState(constant.ConnActiveState)
 			continue
 		}
 
@@ -259,4 +319,34 @@ func (w *WebsocketConnection) BatchCommit() error {
 	}
 
 	return nil
+}
+
+// IsActive 连接是否活跃
+func (w *WebsocketConnection) IsActive() bool {
+	return w.state.Load() == constant.ConnActiveState
+}
+
+// IsNotActive 连接是否不活跃
+func (w *WebsocketConnection) IsNotActive() bool {
+	return w.state.Load() == constant.ConnNotActiveState
+}
+
+// IsInspect 连接是否处于检查状态
+func (w *WebsocketConnection) IsInspect() bool {
+	return w.state.Load() == constant.ConnInspectState
+}
+
+// IsClose 连接是否关闭
+func (w *WebsocketConnection) IsClose() bool {
+	return w.state.Load() == constant.ConnCloseState
+}
+
+// State 获取连接状态
+func (w *WebsocketConnection) State() uint32 {
+	return w.state.Load()
+}
+
+// SetState 设置连接状态
+func (w *WebsocketConnection) SetState(state uint32) {
+	w.state.Store(state)
 }

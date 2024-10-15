@@ -253,3 +253,8 @@ func (s *KVShards[K, V]) Items() []*KVItem[K, V] {
 
 	return items
 }
+
+// Shards 获取所有的分片信息
+func (s *KVShards[K, V]) Shards() []*KVShard[K, V] {
+	return s.shards
+}
