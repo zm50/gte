@@ -50,6 +50,7 @@ func NewEngine() (*Engine, error) {
 
 // Run 启动服务器引擎
 func (e *Engine) Run() error {
+	fmt.Print(constant.Logo)
 	fmt.Printf("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
 
 	go e.connMgr.Start()
