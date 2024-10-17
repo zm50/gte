@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/go75/gte/gconf"
+	"github.com/go75/gte/glog"
 	"github.com/go75/gte/trait"
 	"github.com/gorilla/websocket"
 )
@@ -50,7 +51,7 @@ func (g *TCPGateway) ListenAndServe() error {
 	for {
 		conn, err := g.Accept()
 		if err != nil {
-			fmt.Println("Accept error:", err)
+			glog.Error("Accept error:", err)
 			continue
 		}
 
@@ -62,13 +63,13 @@ func (g *TCPGateway) ListenAndServe() error {
 func (g *TCPGateway) Accept() (trait.Connection, error) {
 	conn, err := g.listener.AcceptTCP()
 	if err != nil {
-		fmt.Println("Accept error:", err)
+		glog.Error("AcceptTCP error:", err)
 		return nil, err
 	}
 
 	file, err := conn.File()
 	if err != nil {
-		fmt.Println("File error:", err)
+		glog.Error("Failed to get file descriptor:", err)
 		return nil, err
 	}
 
@@ -109,7 +110,7 @@ func (g *WebsocketGateway) ListenAndServe() error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := g.upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			fmt.Println("Upgrade error:", err)
+			glog.Error("websocket upgrade error:", err)
 			return
 		}
 
@@ -120,7 +121,7 @@ func (g *WebsocketGateway) ListenAndServe() error {
 		for {
 			conn, err := g.Accept()
 			if err != nil {
-				fmt.Println("Accept error:", err)
+				glog.Error("Accept websocket error:", err)
 				continue
 			}
 

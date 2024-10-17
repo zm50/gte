@@ -1,11 +1,11 @@
 package gconf
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/go75/gte/constant"
 	"github.com/go75/gte/trait"
+	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v3"
 )
@@ -34,6 +34,11 @@ type ServerConfig struct {
 	workersPerConnSignalQueue int
 	connShardCount int
 	healthCheckInterval int
+	logFilename string // 日志文件存放目录
+	logMaxSize int // 文件大小限制,单位MB
+	logMaxBackups int // 最大保留日志文件数量
+	logMaxAge int // 日志文件保留天数
+	logCompress bool // 是否压缩处理
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
@@ -68,6 +73,12 @@ var Config trait.ServerConfig = &ServerConfig{
 	workersPerConnSignalQueue: 2,
 	connShardCount: 16,
 	healthCheckInterval: 100000,
+
+	logFilename: "./gte.log",
+	logMaxSize: 100,
+	logMaxBackups: 100,
+	logMaxAge: 30,
+	logCompress: false,
 }
 
 // Load 从配置文件中加载配置
@@ -75,15 +86,13 @@ func (c *ServerConfig) Load(filePath string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		// 配置文件打开失败
-		fmt.Println("config file open failed")
-		return err
+		return errors.WithMessage(err, "config file open failed")
 	}
 
 	err = yaml.Unmarshal(data, c)
 	if err != nil {
 		// 配置文件解析失败
-		fmt.Println("config file parse failed")
-		return err
+		return errors.WithMessage(err, "config file parse failed")
 	}
 
 	return nil
@@ -94,15 +103,13 @@ func (c *ServerConfig) Export(filePath string) error {
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		// 配置文件导出失败
-		fmt.Println("config file export failed")
-		return err
+		return errors.WithMessage(err, "config file export failed")
 	}
 
 	err = os.WriteFile(filePath, data, 0644)
 	if err != nil {
 		// 配置文件保存失败
-		fmt.Println("config file save failed")
-		return err
+		return errors.WithMessage(err, "config file save failed")
 	}
 
 	return nil
@@ -194,6 +201,26 @@ func (c *ServerConfig) ConnShardCount() int {
 
 func (c *ServerConfig) HealthCheckInterval() int {
 	return c.healthCheckInterval
+}
+
+func (c *ServerConfig) LogFilename() string {
+	return c.logFilename
+}
+
+func (c *ServerConfig) LogMaxSize() int {
+	return c.logMaxSize
+}
+
+func (c *ServerConfig) LogMaxBackups() int {
+	return c.logMaxBackups
+}
+
+func (c *ServerConfig) LogMaxAge() int {
+	return c.logMaxAge
+}
+
+func (c *ServerConfig) LogCompress() bool {
+	return c.logCompress
 }
 
 func (c *ServerConfig) WithListenIP(listenIP string) trait.ServerConfig {
@@ -303,5 +330,30 @@ func (c *ServerConfig) WithConnShardCount(connShardCount int) trait.ServerConfig
 
 func (c *ServerConfig) WithHealthCheckInterval(healthCheckInterval int) trait.ServerConfig {
 	c.healthCheckInterval = healthCheckInterval
+	return c
+}
+
+func (c *ServerConfig) WithLogFilename(logFilename string) trait.ServerConfig {
+	c.logFilename = logFilename
+	return c
+}
+
+func (c *ServerConfig) WithLogMaxSize(logMaxSize int) trait.ServerConfig {
+	c.logMaxSize = logMaxSize
+	return c
+}
+
+func (c *ServerConfig) WithLogMaxBackups(logMaxBackups int) trait.ServerConfig {
+	c.logMaxBackups = logMaxBackups
+	return c
+}
+
+func (c *ServerConfig) WithLogMaxAge(logMaxAge int) trait.ServerConfig {
+	c.logMaxAge = logMaxAge
+	return c
+}
+
+func (c *ServerConfig) WithLogCompress(logCompress bool) trait.ServerConfig {
+	c.logCompress = logCompress
 	return c
 }

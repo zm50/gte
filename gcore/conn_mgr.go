@@ -2,7 +2,6 @@ package gcore
 
 import (
 	"errors"
-	"fmt"
 	"runtime"
 	"syscall"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/go75/gte/constant"
 	"github.com/go75/gte/core"
 	"github.com/go75/gte/gconf"
+	"github.com/go75/gte/glog"
 	"github.com/go75/gte/trait"
 )
 
@@ -88,11 +88,13 @@ func (e *ConnMgr) Get(fd int32) (trait.Connection, bool) {
 func (e *ConnMgr) Add(conn trait.Connection) error {
 	sock, err := conn.File()
 	if err != nil {
+		glog.Error("get socket file descriptor error:", err)
 		return err
 	}
 	fd := sock.Fd()
 
 	if _, ok := e.Get(int32(fd)); ok {
+		glog.Error("connection already exists, conn fd:", fd)
 		return errors.New("connection already exists")
 	}
 
@@ -102,6 +104,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 	}
 	err = syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_ADD | syscall.EPOLLRDHUP, int(fd), &event)
 	if err != nil {
+		glog.Error("epoll ctl add error:", err)
 		return err
 	}
 
@@ -120,7 +123,7 @@ func (e *ConnMgr) Del(fd int32) error {
 	if ok {
 		e.PushConnSignal(NewConnSignal(conn, constant.ConnStopSignal))
 	} else {
-		fmt.Println("call conn stop hook failed, connection not found, conn fd:", fd)
+		glog.Error("call conn stop hook failed, connection not found, conn fd:", fd)
 	}
 
 	event := syscall.EpollEvent{
@@ -129,6 +132,7 @@ func (e *ConnMgr) Del(fd int32) error {
 	}
 	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, int(fd), &event)
 	if err != nil {
+		glog.Error("epoll ctl del error:", err)
 		return err
 	}
 
@@ -162,7 +166,7 @@ func (e *ConnMgr) BatchCommit(n int) {
 
 		conn, ok := e.Get(fd)
 		if !ok {
-			fmt.Println("connection not found:", fd)
+			glog.Error("connection not found, conn fd:", fd)
 			continue
 		}
 
@@ -185,7 +189,7 @@ func (e *ConnMgr) Start() {
 	for {
 		n, err := e.Wait()
 		if err != nil {
-			fmt.Println("epoll wait error:", err)
+			glog.Error("epoll wait error:", err)
 			continue
 		}
 
@@ -239,7 +243,7 @@ func (m *ConnMgr) StartConnSignalHookWorker(connSignalQueue <- chan trait.ConnSi
 				m.connNotActiveHook(conn)
 			}
 		default:
-			fmt.Printf("unknown conn signal %d, connetion id %d\n", conn.Signal(), conn.ID())
+			glog.Error("unknown conn signal:", conn.Signal())
 		}
 	}
 }

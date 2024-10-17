@@ -26,6 +26,11 @@ type ServerConfig interface {
 	WorkersPerConnSignalQueue() int
 	ConnShardCount() int
 	HealthCheckInterval() int
+	LogFilename() string
+	LogMaxSize() int
+	LogMaxBackups() int
+	LogMaxAge() int
+	LogCompress() bool
 
 	WithListenIP(string) ServerConfig
 	WithListenPort(int) ServerConfig
@@ -49,4 +54,9 @@ type ServerConfig interface {
 	WithWorkersPerConnSignalQueue(int) ServerConfig
 	WithConnShardCount(connShardCount int) ServerConfig
 	WithHealthCheckInterval(int) ServerConfig
+	WithLogFilename(string) ServerConfig
+	WithLogMaxSize(int) ServerConfig
+	WithLogMaxBackups(int) ServerConfig
+	WithLogMaxAge(int) ServerConfig
+	WithLogCompress(bool) ServerConfig
 }

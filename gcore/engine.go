@@ -5,6 +5,7 @@ import (
 
 	"github.com/go75/gte/constant"
 	"github.com/go75/gte/gconf"
+	"github.com/go75/gte/glog"
 	"github.com/go75/gte/trait"
 )
 
@@ -24,7 +25,7 @@ func NewEngine() (*Engine, error) {
 	
 	connMgr, err := NewConnMgr(gconf.Config.EpollTimeout(), gconf.Config.EpollEventSize())
 	if err != nil {
-		fmt.Println("NewConnMgr error:", err)
+		glog.Error("NewConnMgr error:", err)
 		return nil, err
 	}
 
@@ -50,14 +51,16 @@ func NewEngine() (*Engine, error) {
 
 // Run 启动服务器引擎
 func (e *Engine) Run() error {
+	glog.Init()
+
 	fmt.Print(constant.Logo)
-	fmt.Printf("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
+	glog.Infof("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
 
 	go e.connMgr.Start()
 
 	err := e.gateway.ListenAndServe()
 	if err != nil {
-		fmt.Println("ListenAndServe error:", err)
+		glog.Error("ListenAndServe error:", err)
 		return err
 	}
 

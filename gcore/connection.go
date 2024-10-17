@@ -2,7 +2,6 @@ package gcore
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go75/gte/constant"
+	"github.com/go75/gte/glog"
 	"github.com/go75/gte/gpack"
 	"github.com/go75/gte/trait"
 	"github.com/gorilla/websocket"
@@ -69,7 +69,7 @@ func (c *TCPConnection) Send(data []byte) error {
 
 	_, err := c.Socket.Write(data)
 	if err != nil {
-		fmt.Printf("send data to conn %d err: %v\n", c.id, err)
+		glog.Error("send data to conn %d err: %v", c.id, err)
 		return err
 	}
 
@@ -268,7 +268,7 @@ func (w *WebsocketConnection) Send(data []byte) error {
 
 	_, err := w.Write(data)
 	if err != nil {
-		fmt.Printf("send data to conn %d err: %v\n", w.id, err)
+		glog.Error("send data to conn %d err: %v", w.id, err)
 		return err
 	}
 
