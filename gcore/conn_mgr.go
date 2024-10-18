@@ -1,7 +1,6 @@
 package gcore
 
 import (
-	"errors"
 	"runtime"
 	"syscall"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/go75/gte/gconf"
 	"github.com/go75/gte/glog"
 	"github.com/go75/gte/trait"
+	"github.com/pkg/errors"
 )
 
 // ConnMgr 连接管理模块，管理客户端的连接，监听待读取数据的连接，并将连接提交给下游的消息分发模块进行处理
@@ -95,7 +95,7 @@ func (e *ConnMgr) Add(conn trait.Connection) error {
 
 	if _, ok := e.Get(int32(fd)); ok {
 		glog.Error("connection already exists, conn fd:", fd)
-		return errors.New("connection already exists")
+		return errors.Errorf("connection already exists, conn fd: %d", fd)
 	}
 
 	event := syscall.EpollEvent{

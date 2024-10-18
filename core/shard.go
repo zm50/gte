@@ -258,3 +258,15 @@ func (s *KVShards[K, V]) Items() []*KVItem[K, V] {
 func (s *KVShards[K, V]) Shards() []*KVShard[K, V] {
 	return s.shards
 }
+
+// Range 遍历分片集合中所有的键值对
+func (s *KVShards[K, V]) Range(fn func (K, V)) {
+	for i := 0; i < len(s.shards); i++ {
+		shard := s.shards[i]
+		shard.RLock()
+		for key, value := range shard.items {
+			fn(key, value)
+		}
+		shard.RUnlock()
+	}
+}

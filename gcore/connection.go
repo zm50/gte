@@ -303,6 +303,7 @@ func (w *WebsocketConnection) BatchCommit() error {
 	for time.Now().Before(w.connMgr.MaxReadDeadline()) {
 		messageType, data, err := w.Conn.ReadMessage()
 		if err != nil {
+			glog.Error("read websocket message err:", err)
 			return err
 		}
 	
