@@ -16,7 +16,7 @@ type Connection interface {
 
 	ID() uint64
 	Send(data []byte) error
-	SendMsg(msgID uint16, data []byte) error
+	SendMsg(msgID uint32, data []byte) error
 	Stop()
 	BatchCommit() error
 	IsActive() bool

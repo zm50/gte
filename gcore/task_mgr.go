@@ -66,11 +66,11 @@ func (m *TaskMgr) Use(flow ...trait.TaskFunc) {
 }
 
 // Regist 注册任务流
-func (m *TaskMgr) Regist(id uint16, flow ...trait.TaskFunc) {
+func (m *TaskMgr) Regist(id uint32, flow ...trait.TaskFunc) {
 	m.RouterGroup.Regist(id, flow...)
 }
 
 // Regist 注册任务流
-func (m *TaskMgr) RegistFlow(id uint16, flow trait.TaskFlow) {
+func (m *TaskMgr) RegistFlow(id uint32, flow trait.TaskFlow) {
 	m.RouterGroup.RegistFlow(id, flow)
 }

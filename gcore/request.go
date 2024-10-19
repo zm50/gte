@@ -24,6 +24,6 @@ func (r *Request) ConnID() uint64 {
 }
 
 // ID 消息ID
-func (r *Request) ID() uint16 {
+func (r *Request) ID() uint32 {
 	return r.Message.ID()
 }

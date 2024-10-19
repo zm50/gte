@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go75/gte/gconf"
+	"github.com/go75/gte/glog"
 	"github.com/go75/gte/trait"
 )
 
@@ -13,13 +14,14 @@ type Dispatcher struct {
 	bodyDeadline time.Time
 
 	connQueue []chan trait.Connection
+	connMgr trait.ConnMgr
 	taskMgr trait.TaskMgr
 }
 
 var _ trait.Dispatcher = (*Dispatcher)(nil)
 
 // NewDispatcher 创建一个请求分发器
-func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
+func NewDispatcher(connMgr trait.ConnMgr, taskMgr trait.TaskMgr) trait.Dispatcher {
 	connQueue := make([]chan trait.Connection, gconf.Config.DispatcherQueues())
 	for i := 0; i < len(connQueue); i++ {
 		connQueue[i] = make(chan trait.Connection, gconf.Config.DispatcherQueueLen())
@@ -27,6 +29,7 @@ func NewDispatcher(taskMgr trait.TaskMgr) *Dispatcher {
 
 	return &Dispatcher{
 		connQueue: connQueue,
+		connMgr: connMgr,
 		taskMgr: taskMgr,
 	}
 }
@@ -44,7 +47,13 @@ func (d *Dispatcher) Start() {
 func (d *Dispatcher) Dispatch(connQueue chan trait.Connection) {
 	// 从conn中读取数据，并将数据提交给taskMgr处理
 	for conn := range connQueue {
-		conn.BatchCommit()
+		err := conn.BatchCommit()
+		if err != nil {
+			glog.Error("dispatcher batch commit error: ", err)
+			if d.connMgr.Del(int32(conn.ID())) != nil {
+				glog.Error("del conn error: ", err)
+			}
+		}
 	}
 }
 

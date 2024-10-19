@@ -1,13 +1,15 @@
 package gpack
 
-import "github.com/go75/gte/trait"
+import (
+	"github.com/go75/gte/trait"
+)
 
 // Message 业务消息
 type Message struct {
 	//消息ID
-	id uint16
+	id uint32
 	//消息的长度
-	dataLen uint16
+	dataLen uint32
 	//消息的内容
 	data []byte
 }
@@ -15,21 +17,21 @@ type Message struct {
 var _ trait.Message = (*Message)(nil)
 
 // 创建一个message
-func NewMessage(id uint16, data []byte) *Message {
+func NewMessage(id uint32, data []byte) *Message {
 	return &Message{
 		id:      id,
-		dataLen: uint16(len(data)),
+		dataLen: uint32(len(data)),
 		data:    data,
 	}
 }
 
 // ID 返回消息ID
-func (m *Message) ID() uint16 {
+func (m *Message) ID() uint32 {
 	return m.id
 }
 
 // DataLen 返回消息体的长度
-func (m *Message) DataLen() uint16 {
+func (m *Message) DataLen() uint32 {
 	return m.dataLen
 }
 
@@ -39,12 +41,12 @@ func (m *Message) Data() []byte {
 }
 
 // SetID 设置消息ID
-func (m *Message) SetID(id uint16) {
+func (m *Message) SetID(id uint32) {
 	m.id = id
 }
 
 // SetDataLen 设置消息体的长度
-func (m *Message) SetDataLen(dataLen uint16) {
+func (m *Message) SetDataLen(dataLen uint32) {
 	m.dataLen = dataLen
 }
 

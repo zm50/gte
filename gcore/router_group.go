@@ -37,11 +37,11 @@ func (g *RouterGroup) Use(flow ...trait.TaskFunc) {
 }
 
 // Regist 注册任务执行逻辑
-func (g *RouterGroup) Regist(id uint16, flow ...trait.TaskFunc) {
+func (g *RouterGroup) Regist(id uint32, flow ...trait.TaskFunc) {
 	g.Router.Regist(id, g.baseTaskFlow.Append(flow...).Funcs()...)
 }
 
 // RegistFlow 注册任务执行流
-func (g *RouterGroup) RegistFlow(id uint16, flow trait.TaskFlow) {
+func (g *RouterGroup) RegistFlow(id uint32, flow trait.TaskFlow) {
 	g.Router.RegistFlow(id, flow)
 }

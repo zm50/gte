@@ -46,7 +46,7 @@ type ConnMgr struct {
 var _ trait.ConnMgr = (*ConnMgr)(nil)
 
 // NewConnMgr 新建一个连接管理的实例
-func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
+func NewConnMgr(timeout int, eventSize int, taskMgr trait.TaskMgr) (*ConnMgr, error) {
 	// 创建一个epoll句柄
 	epfd, err := syscall.EpollCreate1(0)
 	if err != nil {
@@ -73,6 +73,8 @@ func NewConnMgr(timeout int, eventSize int) (*ConnMgr, error) {
 		maxReadTimeout: maxReadTimeout,
 		connSignalQueue: connSignalQueues,
 	}
+
+	connMgr.dispatcher = NewDispatcher(connMgr, taskMgr)
 
 	connMgr.keepAliveMgr = NewKeepAliveMgr(connMgr, connShards.Shards())
 
@@ -181,6 +183,8 @@ func (e *ConnMgr) BatchCommit(n int) {
 func (e *ConnMgr) Start() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	e.dispatcher.Start()
 
 	e.keepAliveMgr.Start()
 

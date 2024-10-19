@@ -77,12 +77,12 @@ func (c *TCPConnection) Send(data []byte) error {
 }
 
 // SendMsg 发送消息给客户端
-func (c *TCPConnection) SendMsg(msgID uint16, data []byte) error {
+func (c *TCPConnection) SendMsg(msgID uint32, data []byte) error {
 	//封装message消息
 	message := gpack.NewMessage(msgID, data)
 
 	//封包
-	response := gpack.Pack(message)
+	response := gpack.PackTCP(message)
 
 	err := c.Send(response)
 
@@ -102,7 +102,7 @@ func (c *TCPConnection) Stop() {
 // BatchCommit 批量提交消息
 func (c *TCPConnection) BatchCommit() error {
 	for time.Now().Before(c.connMgr.ReadDeadline()) {
-		header := make([]byte, 4)
+		header := make([]byte, 8)
 
 		// 设置header读取超时时间
 		c.SetReadDeadline(c.connMgr.ReadDeadline())
@@ -120,14 +120,11 @@ func (c *TCPConnection) BatchCommit() error {
 		// 设置body读取超时时间
 		c.SetReadDeadline(c.connMgr.ReadDeadline())
 
-		id, dataLen := gpack.UnpackHeader(header)
-		body := make([]byte, dataLen)
-		_, err = io.ReadFull(c, body)
+		msg, err := gpack.UnpackTCP(c)
 		if err != nil {
+			glog.Error("unpack tcp message err:", err)
 			return err
 		}
-
-		msg := gpack.NewMessage(id, body)
 
 		// 提交消息，处理数据		
 		request := NewRequest(c, msg)
@@ -276,12 +273,12 @@ func (w *WebsocketConnection) Send(data []byte) error {
 }
 
 // SendMsg 发送消息给客户端
-func (w *WebsocketConnection) SendMsg(msgID uint16, data []byte) error {
+func (w *WebsocketConnection) SendMsg(msgID uint32, data []byte) error {
 	//封装message消息
 	message := gpack.NewMessage(msgID, data)
 
 	//封包
-	response := gpack.Pack(message)
+	response := gpack.PackWebsocket(message)
 
 	err := w.Send(response)
 
@@ -312,7 +309,11 @@ func (w *WebsocketConnection) BatchCommit() error {
 			continue
 		}
 
-		msg := gpack.UnpackFullData(data)
+		msg, err := gpack.UnpackWebsocket(data)
+		if err != nil {
+			glog.Error("unpack websocket message err:", err)
+			return err
+		}
 
 		request := NewRequest(w, msg)
 

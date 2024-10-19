@@ -23,7 +23,7 @@ func NewEngine() (*Engine, error) {
 	// 新建任务管理器
 	taskMgr := NewTaskMgr()
 	
-	connMgr, err := NewConnMgr(gconf.Config.EpollTimeout(), gconf.Config.EpollEventSize())
+	connMgr, err := NewConnMgr(gconf.Config.EpollTimeout(), gconf.Config.EpollEventSize(), taskMgr)
 	if err != nil {
 		glog.Error("NewConnMgr error:", err)
 		return nil, err
@@ -56,6 +56,7 @@ func (e *Engine) Run() error {
 	fmt.Print(constant.Logo)
 	glog.Infof("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
 
+	e.taskMgr.Start()
 	go e.connMgr.Start()
 
 	err := e.gateway.ListenAndServe()
@@ -68,19 +69,19 @@ func (e *Engine) Run() error {
 }
 
 // Regist 注册任务处理逻辑
-func (e *Engine) Regist(id uint16, flow ...TaskFunc) {
+func (e *Engine) Regist(id uint32, flow ...TaskFunc) {
 	for _, fn := range flow {
 		e.taskMgr.Regist(id, fn)
 	}
 }
 
 // RegistFlow 注册任务处理流
-func (e *Engine) RegistFlow(id uint16, flow trait.TaskFlow) {
+func (e *Engine) RegistFlow(id uint32, flow trait.TaskFlow) {
 	e.taskMgr.RegistFlow(id, flow)
 }
 
 // TaskFlow 获取任务处理流
-func (e *Engine) TaskFlow(id uint16) trait.TaskFlow {
+func (e *Engine) TaskFlow(id uint32) trait.TaskFlow {
 	return e.taskMgr.TaskFlow(id)
 }
 
