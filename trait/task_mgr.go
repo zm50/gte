@@ -1,10 +1,10 @@
 package trait
 
-type TaskMgr interface {
-	RouterGroup
+type TaskMgr[T any] interface {
+	RouterGroup[T]
 
 	Start()
-	StartWorker(taskQueue <- chan Request)
-	ChooseQueue(connID uint64) chan <- Request
-	Submit(request Request)
+	StartWorker(taskQueue <- chan Request[T])
+	ChooseQueue(connID uint64) chan <- Request[T]
+	Submit(request Request[T])
 }

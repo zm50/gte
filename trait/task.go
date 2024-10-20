@@ -1,13 +1,13 @@
 package trait
 
-type TaskFunc interface {
-	Execute(ctx Context)
+type TaskFunc[T any] interface {
+	Execute(ctx Context[T])
 }
 
-type TaskFlow interface {
-	Append(fs ...TaskFunc) TaskFlow
-	Fork() TaskFlow
-	Execute(idx int, ctx Context)
+type TaskFlow[T any] interface {
+	Append(fs ...TaskFunc[T]) TaskFlow[T]
+	Fork() TaskFlow[T]
+	Execute(idx int, ctx Context[T])
 	Len() int
-	Funcs() []TaskFunc
+	Funcs() []TaskFunc[T]
 }

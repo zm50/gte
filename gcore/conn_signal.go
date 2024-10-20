@@ -1,21 +1,21 @@
 package gcore
 
-import "github.com/go75/gte/trait"
+import "github.com/zm50/gte/trait"
 
 // ConnSignal 连接状态信号
-type ConnSignal struct {
-	trait.Connection
+type ConnSignal[T any] struct {
+	trait.Connection[T]
 	signal uint8
 }
 
-var _ trait.ConnSignal = (*ConnSignal)(nil)
+var _ trait.ConnSignal[int] = (*ConnSignal[int])(nil)
 
 // NewConnSignal 创建连接状态信号
-func NewConnSignal(conn trait.Connection, signal uint8) *ConnSignal {
-	return &ConnSignal{conn, signal}
+func NewConnSignal[T any](conn trait.Connection[T], signal uint8) *ConnSignal[T] {
+	return &ConnSignal[T]{conn, signal}
 }
 
 // Signal 连接状态信号
-func (e *ConnSignal) Signal() uint8 {
+func (e *ConnSignal[T]) Signal() uint8 {
 	return e.signal
 }

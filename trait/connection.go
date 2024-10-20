@@ -11,7 +11,7 @@ type Socket interface {
 }
 
 // Connection 连接模块抽象层
-type Connection interface {
+type Connection[T any] interface {
 	Socket
 
 	ID() uint64
@@ -25,4 +25,7 @@ type Connection interface {
 	IsClose() bool
 	State() uint32
 	SetState(state uint32)
+
+	Property() T
+	SetProperty(T)
 }

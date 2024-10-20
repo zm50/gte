@@ -1,23 +1,23 @@
 package gcore
 
 import (
-	"github.com/go75/gte/constant"
-	"github.com/go75/gte/trait"
+	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/trait"
 )
 
 // Context 任务上下文
-type Context struct {
-	trait.Request
+type Context[T any] struct {
+	trait.Request[T]
 
 	taskIdx int
-	tasks trait.TaskFlow
+	tasks trait.TaskFlow[T]
 }
 
-var _ trait.Context = (*Context)(nil)
+var _ trait.Context[int] = (*Context[int])(nil)
 
 // NewContext 创建任务上下文
-func NewContext(req trait.Request, handlers trait.TaskFlow) *Context {
-	return &Context{
+func NewContext[T any](req trait.Request[T], handlers trait.TaskFlow[T]) *Context[T] {
+	return &Context[T]{
 		Request:  req,
 
 		taskIdx: -1,
@@ -26,7 +26,7 @@ func NewContext(req trait.Request, handlers trait.TaskFlow) *Context {
 }
 
 // Next 执行下一个任务
-func (c *Context) Next() {
+func (c *Context[T]) Next() {
 	c.taskIdx++
 	if c.taskIdx < c.tasks.Len() {
 		c.tasks.Execute(c.taskIdx, c)
@@ -35,6 +35,6 @@ func (c *Context) Next() {
 }
 
 // Abort 中止任务流
-func (c *Context) Abort() {
+func (c *Context[T]) Abort() {
 	c.taskIdx = constant.AbortIndex
 }

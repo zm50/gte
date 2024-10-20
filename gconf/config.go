@@ -3,82 +3,82 @@ package gconf
 import (
 	"os"
 
-	"github.com/go75/gte/constant"
-	"github.com/go75/gte/trait"
 	"github.com/pkg/errors"
+	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/trait"
 
 	"gopkg.in/yaml.v3"
 )
 
 // ServerConfig gte框架内部配置
 type ServerConfig struct {
-	listenIP string
-	listenPort int
-	networkVersion string
-	readTimeout int
-	maxReadTimeout int
-	networkMode int
-	maxConns int
-	maxPacketSize int
-	epollTimeout int
-	epollEventSize int
-	dispatcherQueues int
-	dispatcherQueueLen int
+	listenIP                  string
+	listenPort                int
+	networkVersion            string
+	readTimeout               int
+	maxReadTimeout            int
+	networkMode               int
+	maxConns                  int
+	maxPacketSize             int
+	epollTimeout              int
+	epollEventSize            int
+	dispatcherQueues          int
+	dispatcherQueueLen        int
 	workersPerDispatcherQueue int
-	taskQueues int
-	taskQueueLen int
-	workersPerTaskQueue int
-	websocketQueueLen int
-	connSignalQueues int
-	connSignalQueueLen int
+	taskQueues                int
+	taskQueueLen              int
+	workersPerTaskQueue       int
+	websocketQueueLen         int
+	connSignalQueues          int
+	connSignalQueueLen        int
 	workersPerConnSignalQueue int
-	connShardCount int
-	healthCheckInterval int
-	logFilename string // 日志文件存放目录
-	logMaxSize int // 文件大小限制,单位MB
-	logMaxBackups int // 最大保留日志文件数量
-	logMaxAge int // 日志文件保留天数
-	logCompress bool // 是否压缩处理
+	connShardCount            int
+	healthCheckInterval       int
+	logFilename               string // 日志文件存放目录
+	logMaxSize                int    // 文件大小限制,单位MB
+	logMaxBackups             int    // 最大保留日志文件数量
+	logMaxAge                 int    // 日志文件保留天数
+	logCompress               bool   // 是否压缩处理
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
 
 // Config gte框架默认配置
 var Config trait.ServerConfig = &ServerConfig{
-	listenIP: "0.0.0.0",
-	listenPort: 8080,
+	listenIP:       "0.0.0.0",
+	listenPort:     8080,
 	networkVersion: "tcp4",
-	readTimeout: 100,
+	readTimeout:    100,
 	maxReadTimeout: 200,
-	networkMode: constant.TCPNetowrkMode,
+	networkMode:    constant.TCPNetowrkMode,
 
-	maxConns: 1024,
+	maxConns:      1024,
 	maxPacketSize: 4096,
 
-	epollTimeout: -1,
+	epollTimeout:   -1,
 	epollEventSize: 1024,
 
-	dispatcherQueues: 8,
-	dispatcherQueueLen: 128,
+	dispatcherQueues:          8,
+	dispatcherQueueLen:        128,
 	workersPerDispatcherQueue: 2,
 
-	taskQueues: 8,
-	taskQueueLen: 128,
+	taskQueues:          8,
+	taskQueueLen:        128,
 	workersPerTaskQueue: 8,
 
 	websocketQueueLen: 16,
 
-	connSignalQueues: 2,
-	connSignalQueueLen: 4,
+	connSignalQueues:          2,
+	connSignalQueueLen:        4,
 	workersPerConnSignalQueue: 2,
-	connShardCount: 16,
-	healthCheckInterval: 100000,
+	connShardCount:            16,
+	healthCheckInterval:       100000,
 
-	logFilename: "./gte.log",
-	logMaxSize: 100,
+	logFilename:   "./gte.log",
+	logMaxSize:    100,
 	logMaxBackups: 100,
-	logMaxAge: 30,
-	logCompress: false,
+	logMaxAge:     30,
+	logCompress:   false,
 }
 
 // Load 从配置文件中加载配置

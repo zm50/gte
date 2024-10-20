@@ -1,6 +1,6 @@
 package trait
 
-type ConnSignal interface {
-	Connection
+type ConnSignal[T any] interface {
+	Connection[T]
 	Signal() uint8
 }

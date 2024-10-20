@@ -1,8 +1,8 @@
 package trait
 
-import "github.com/go75/gte/core"
+import "github.com/zm50/gte/core"
 
-type KeepAliveMgr interface {
+type KeepAliveMgr[T any] interface {
 	Start()
-	StartWorker(connShard *core.KVShard[int32, Connection])
+	StartWorker(connShard *core.KVShard[int32, Connection[T]])
 }

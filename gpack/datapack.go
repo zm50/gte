@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/go75/gte/trait"
 	"github.com/pkg/errors"
+	"github.com/zm50/gte/trait"
 )
 
 /**

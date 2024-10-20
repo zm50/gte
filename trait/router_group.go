@@ -1,8 +1,8 @@
 package trait
 
-type RouterGroup interface {
-	Router
+type RouterGroup[T any] interface {
+	Router[T]
 
-	Group(flow ...TaskFunc) RouterGroup
-	Use(flow ...TaskFunc)
+	Group(flow ...TaskFunc[T]) RouterGroup[T]
+	Use(flow ...TaskFunc[T])
 }

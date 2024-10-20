@@ -1,6 +1,6 @@
 package trait
 
-type Gateway interface {
+type Gateway[T any] interface {
 	ListenAndServe() error
-	Accept() (Connection, error)
+	Accept() (Connection[T], error)
 }

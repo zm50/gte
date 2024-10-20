@@ -1,7 +1,7 @@
 package trait
 
-type Router interface {
-	Regist(id uint32, flow ...TaskFunc)
-	RegistFlow(id uint32, flow TaskFlow)
-	TaskFlow(id uint32) TaskFlow
+type Router[T any] interface {
+	Regist(id uint32, flow ...TaskFunc[T])
+	RegistFlow(id uint32, flow TaskFlow[T])
+	TaskFlow(id uint32) TaskFlow[T]
 }

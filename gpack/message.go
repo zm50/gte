@@ -1,7 +1,7 @@
 package gpack
 
 import (
-	"github.com/go75/gte/trait"
+	"github.com/zm50/gte/trait"
 )
 
 // Message 业务消息

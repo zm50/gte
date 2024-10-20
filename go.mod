@@ -1,4 +1,4 @@
-module github.com/go75/gte
+module github.com/zm50/gte
 
 go 1.23.1
 

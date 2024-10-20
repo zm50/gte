@@ -1,7 +1,7 @@
 package trait
 
-type Context interface {
-	Message
+type Context[T any] interface {
+	Request[T]
 
 	Next()
 	Abort()

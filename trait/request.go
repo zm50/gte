@@ -1,7 +1,7 @@
 package trait
 
-type Request interface {
+type Request[T any] interface {
 	Message
 
-	ConnID() uint64
+	Conn() Connection[T]
 }
