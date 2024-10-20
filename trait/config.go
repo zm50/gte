@@ -7,8 +7,8 @@ type ServerConfig interface {
 	ListenIP() string
 	ListenPort() int
 	NetworkVersion() string
-	ReadTimeout() int
-	MaxReadTimeout() int
+	ReadTry() int
+	WriteInternal() int
 	NetworkMode() int
 	MaxConns() int
  	MaxPacketSize() int
@@ -35,8 +35,8 @@ type ServerConfig interface {
 	WithListenIP(string) ServerConfig
 	WithListenPort(int) ServerConfig
 	WithNetworkVersion(string) ServerConfig
-	WithReadTimeout(int) ServerConfig
-	WithMaxReadTimeout(int) ServerConfig
+	WithReadTry(int) ServerConfig
+	WithWriteInternal(int) ServerConfig
 	WithNetworkMode(int) ServerConfig
 	WithMaxConns(int) ServerConfig
  	WithMaxPacketSize(int) ServerConfig

@@ -1,6 +1,8 @@
 package trait
 
-import "time"
+import (
+	"time"
+)
 
 type Dispatcher[T any] interface {
 	Start()

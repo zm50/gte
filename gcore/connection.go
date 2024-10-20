@@ -1,16 +1,17 @@
 package gcore
 
 import (
-	"errors"
-	"io"
 	"net"
 	"os"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/gconf"
 	"github.com/zm50/gte/glog"
 	"github.com/zm50/gte/gpack"
 	"github.com/zm50/gte/trait"
@@ -30,6 +31,8 @@ type TCPConnection[T any] struct {
 	//防止连接并发写的锁
 	writeLock sync.Mutex
 
+	wg *sync.WaitGroup
+
 	connMgr   trait.ConnMgr[T]
 	taskMgr   trait.TaskMgr[T]
 	taskQueue chan<- trait.Request[T]
@@ -38,7 +41,7 @@ type TCPConnection[T any] struct {
 var _ trait.Connection[int] = (*TCPConnection[int])(nil)
 
 // NewTCPConnection 创建一个新的连接对象
-func NewTCPConnection[T any](connID uint64, socket trait.Socket, connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Connection[T] {
+func NewTCPConnection[T any](connID uint64, socket trait.Socket, wg *sync.WaitGroup, connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Connection[T] {
 	state := &atomic.Uint32{}
 	state.Store(constant.ConnActiveState)
 
@@ -47,6 +50,7 @@ func NewTCPConnection[T any](connID uint64, socket trait.Socket, connMgr trait.C
 		Socket:    socket,
 		state:     state,
 		writeLock: sync.Mutex{},
+		wg:        wg,
 		connMgr:   connMgr,
 		taskMgr:   taskMgr,
 		taskQueue: taskMgr.ChooseQueue(connID),
@@ -62,16 +66,23 @@ func (c *TCPConnection[T]) ID() uint64 {
 
 // Send 发送数据给客户端
 func (c *TCPConnection[T]) Send(data []byte) error {
-	if !c.IsActive() {
-		return errors.New("connection is closed when send message")
+	if !c.IsActive() && !c.IsInspect() {
+		// 非法的连接状态
+		return errors.Errorf("connection state is not active when send message, state: %d", c.state.Load())
 	}
 
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
+	NEXT:
+
 	_, err := c.Socket.Write(data)
 	if err != nil {
-		glog.Error("send data to conn %d err: %v", c.id, err)
+		if err == syscall.EAGAIN {
+			time.Sleep(time.Duration(gconf.Config.WriteInternal()) * time.Millisecond)
+			goto NEXT
+		}
+		glog.Errorf("send data to conn %d err: %v\n", c.id, err)
 		return err
 	}
 
@@ -103,29 +114,27 @@ func (c *TCPConnection[T]) Stop() {
 
 // BatchCommit 批量提交消息
 func (c *TCPConnection[T]) BatchCommit() error {
-	for time.Now().Before(c.connMgr.ReadDeadline()) {
-		header := make([]byte, 8)
+	defer c.wg.Done()
 
-		// 设置header读取超时时间
-		c.SetReadDeadline(c.connMgr.ReadDeadline())
+	tryCount := gconf.Config.ReadTry()
 
-		_, err := io.ReadFull(c, header)
+	for tryCount > 0 {
+		tryCount--
+
+		header, err := gpack.UnpackTCPHeader(c)
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// 数据包读取超时
+			if err == syscall.EAGAIN {
+				// 读超时
 				return nil
 			}
 
 			return err
 		}
 
-		// 设置body读取超时时间
-		c.SetReadDeadline(c.connMgr.ReadDeadline())
-
-		msg, err := gpack.UnpackTCP(c)
+		msg, err := gpack.UnpackTCPBody(c, header)
 		if err != nil {
-			glog.Error("unpack tcp message err:", err)
-			return err
+			glog.Error("unpack tcp body err:", err)
+			return errors.WithMessage(err, "unpack tcp body err")
 		}
 
 		// 提交消息，处理数据
@@ -189,6 +198,8 @@ type WebsocketConnection[T any] struct {
 	//防止连接并发写的锁
 	writeLock sync.Mutex
 
+	wg *sync.WaitGroup
+
 	state *atomic.Uint32
 
 	connMgr   trait.ConnMgr[T]
@@ -198,7 +209,7 @@ type WebsocketConnection[T any] struct {
 
 var _ trait.Connection[int] = (*WebsocketConnection[int])(nil)
 
-func NewWebsocketConnection[T any](connID uint64, conn *websocket.Conn, connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Connection[T] {
+func NewWebsocketConnection[T any](connID uint64, conn *websocket.Conn, wg *sync.WaitGroup, connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Connection[T] {
 	state := &atomic.Uint32{}
 	state.Store(constant.ConnActiveState)
 
@@ -206,6 +217,7 @@ func NewWebsocketConnection[T any](connID uint64, conn *websocket.Conn, connMgr 
 		id:        connID,
 		Conn:      conn,
 		writeLock: sync.Mutex{},
+		wg:        wg,
 		state:     state,
 		connMgr:   connMgr,
 		taskMgr:   taskMgr,
@@ -270,15 +282,22 @@ func (w *WebsocketConnection[T]) ID() uint64 {
 
 // Send 发送数据给客户端
 func (w *WebsocketConnection[T]) Send(data []byte) error {
-	if !w.IsActive() {
-		return errors.New("connection is closed when send message")
+	if !w.IsActive() && !w.IsInspect() {
+		// 非法的连接状态
+		return errors.Errorf("connection state is not active when send message, state: %d", w.state.Load())
 	}
 
 	w.writeLock.Lock()
 	defer w.writeLock.Unlock()
 
+	NEXT:
+
 	_, err := w.Write(data)
 	if err != nil {
+		if err == syscall.EAGAIN {
+			time.Sleep(time.Duration(gconf.Config.WriteInternal()) * time.Millisecond)
+			goto NEXT
+		}
 		glog.Error("send data to conn %d err: %v", w.id, err)
 		return err
 	}
@@ -309,11 +328,18 @@ func (w *WebsocketConnection[T]) Stop() {
 }
 
 func (w *WebsocketConnection[T]) BatchCommit() error {
-	w.SetReadDeadline(w.connMgr.MaxReadDeadline())
+	defer w.wg.Done()
 
-	for time.Now().Before(w.connMgr.MaxReadDeadline()) {
+	tryCount := gconf.Config.ReadTry()
+
+	for tryCount > 0 {
+		tryCount--
 		messageType, data, err := w.Conn.ReadMessage()
 		if err != nil {
+			if err == syscall.EAGAIN {
+				// 读超时
+				return nil
+			}
 			glog.Error("read websocket message err:", err)
 			return err
 		}

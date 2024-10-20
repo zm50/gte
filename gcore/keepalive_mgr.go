@@ -6,6 +6,7 @@ import (
 	"github.com/zm50/gte/constant"
 	"github.com/zm50/gte/core"
 	"github.com/zm50/gte/gconf"
+	"github.com/zm50/gte/glog"
 	"github.com/zm50/gte/trait"
 )
 
@@ -37,6 +38,7 @@ func (k *KeepAliveMgr[T]) StartWorker(connShard *core.KVShard[int32, trait.Conne
 	ticker := time.NewTicker(k.healthCheckInterval)
 	for {
 		<-ticker.C
+		glog.Info("start to check connections")
 		connShard.RRange(func(id int32, conn trait.Connection[T]) {
 			if conn.IsActive() {
 				// 设置为检查状态
@@ -47,5 +49,6 @@ func (k *KeepAliveMgr[T]) StartWorker(connShard *core.KVShard[int32, trait.Conne
 				k.connMgr.PushConnSignal(NewConnSignal(conn, constant.ConnNotActiveSignal))
 			}
 		})
+		glog.Info("check connections done")
 	}
 }

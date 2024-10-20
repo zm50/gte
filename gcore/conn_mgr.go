@@ -2,6 +2,7 @@ package gcore
 
 import (
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,12 +22,6 @@ type ConnMgr[T any] struct {
 
 	events []syscall.EpollEvent
 
-	readTimeout    time.Duration
-	maxReadTimeout time.Duration
-
-	readDeadline    time.Time
-	maxReadDeadline time.Time
-
 	dispatcher trait.Dispatcher[T]
 
 	// key: fd, value: Conn
@@ -41,6 +36,8 @@ type ConnMgr[T any] struct {
 	keepAliveMgr trait.KeepAliveMgr[T]
 
 	connSignalQueue []chan trait.ConnSignal[T]
+
+	wg *sync.WaitGroup
 }
 
 var _ trait.ConnMgr[int] = (*ConnMgr[int])(nil)
@@ -52,9 +49,6 @@ func NewConnMgr[T any](timeout int, eventSize int, taskMgr trait.TaskMgr[T]) (*C
 	if err != nil {
 		return nil, err
 	}
-
-	readTimeout := time.Duration(gconf.Config.ReadTimeout()) * time.Millisecond
-	maxReadTimeout := time.Duration(gconf.Config.MaxReadTimeout()) * time.Millisecond
 
 	connSignalQueues := make([]chan trait.ConnSignal[T], gconf.Config.ConnSignalQueues())
 	for i := 0; i < len(connSignalQueues); i++ {
@@ -69,9 +63,8 @@ func NewConnMgr[T any](timeout int, eventSize int, taskMgr trait.TaskMgr[T]) (*C
 		timeout:         timeout,
 		events:          make([]syscall.EpollEvent, eventSize),
 		connShards:      connShards,
-		readTimeout:     readTimeout,
-		maxReadTimeout:  maxReadTimeout,
 		connSignalQueue: connSignalQueues,
+		wg:              &sync.WaitGroup{},
 	}
 
 	connMgr.dispatcher = NewDispatcher(connMgr, taskMgr)
@@ -152,8 +145,7 @@ func (e *ConnMgr[T]) Wait() (int, error) {
 
 // BatchCommit 批量处理待读取的连接
 func (e *ConnMgr[T]) BatchCommit(n int) {
-	e.readDeadline = time.Now().Add(e.readTimeout)
-	e.maxReadDeadline = time.Now().Add(e.maxReadTimeout)
+	e.wg.Add(n)
 
 	for n > 0 {
 		n--
@@ -174,9 +166,9 @@ func (e *ConnMgr[T]) BatchCommit(n int) {
 
 		// 提交待读取的连接
 		e.dispatcher.Commit(conn)
-
-		time.Sleep(e.maxReadTimeout)
 	}
+
+	e.wg.Wait()
 }
 
 // Start 启动连接管理器
@@ -191,6 +183,8 @@ func (e *ConnMgr[T]) Start() {
 	defer runtime.UnlockOSThread()
 	defer syscall.Close(e.epfd)
 
+	delay := time.Duration(gconf.Config.EpollTimeout()) * time.Millisecond
+
 	for {
 		n, err := e.Wait()
 		if err != nil {
@@ -198,7 +192,15 @@ func (e *ConnMgr[T]) Start() {
 			continue
 		}
 
+		if n == 0 {
+			time.Sleep(delay)
+			continue
+		}
+
+		now := time.Now()
+		glog.Info("epoll wait events:", n)
 		e.BatchCommit(n)
+		glog.Infof("epoll events processed, cost: %s\n", time.Now().Sub(now).String())
 	}
 }
 
@@ -210,16 +212,6 @@ func (e *ConnMgr[T]) Stop() {
 	}
 
 	syscall.Close(e.epfd)
-}
-
-// ReadDeadline 头部超时时间
-func (e *ConnMgr[T]) ReadDeadline() time.Time {
-	return e.readDeadline
-}
-
-// MaxReadDeadline 主体超时时间
-func (e *ConnMgr[T]) MaxReadDeadline() time.Time {
-	return e.maxReadDeadline
 }
 
 // StartConnSignalHookWorkers 启动连接信号钩子消费者工作池
@@ -276,4 +268,9 @@ func (m *ConnMgr[T]) ChooseConnSignalQueue(connID uint64) chan<- trait.ConnSigna
 // PushConnSignal 推送连接信号
 func (m *ConnMgr[T]) PushConnSignal(signal trait.ConnSignal[T]) {
 	m.ChooseConnSignalQueue(signal.ID()) <- signal
+}
+
+// WaitGroup 等待组
+func (m *ConnMgr[T]) WaitGroup() *sync.WaitGroup {
+	return m.wg
 }

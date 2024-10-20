@@ -1,6 +1,8 @@
 package trait
 
-import "time"
+import (
+	"sync"
+)
 
 type ConnMgr[T any] interface {
 	Get(fd int32) (Connection[T], bool)
@@ -10,8 +12,6 @@ type ConnMgr[T any] interface {
 	BatchCommit(n int)
 	Start()
 	Stop()
-	ReadDeadline() time.Time
-	MaxReadDeadline() time.Time
 	StartConnSignalHookWorkers()
 	StartConnSignalHookWorker(<- chan ConnSignal[T])
 	OnConnStart(func(conn Connection[T]))
@@ -19,4 +19,5 @@ type ConnMgr[T any] interface {
 	OnConnNotActive(fn func(conn Connection[T]))
 	ChooseConnSignalQueue(connID uint64) chan <- ConnSignal[T]
 	PushConnSignal(signal ConnSignal[T])
+	WaitGroup() *sync.WaitGroup
 }

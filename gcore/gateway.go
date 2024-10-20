@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"syscall"
 
 	"github.com/gorilla/websocket"
 	"github.com/zm50/gte/gconf"
@@ -73,7 +74,13 @@ func (g *TCPGateway[T]) Accept() (trait.Connection[T], error) {
 		return nil, err
 	}
 
-	connection := NewTCPConnection(uint64(file.Fd()), conn, g.connMgr, g.taskMgr)
+	err = syscall.SetNonblock(int(file.Fd()), true)
+	if err != nil {
+		glog.Error("Failed to set non-blocking:", err)
+		return nil, err
+	}
+
+	connection := NewTCPConnection(uint64(file.Fd()), conn, g.connMgr.WaitGroup(), g.connMgr, g.taskMgr)
 
 	return connection, nil
 }
@@ -139,14 +146,20 @@ func (g *WebsocketGateway[T]) Accept() (trait.Connection[T], error) {
 
 	fd := g.websocketFD(conn)
 
-	connection := NewWebsocketConnection(uint64(fd), conn, g.connMgr, g.taskMgr)
+	err := syscall.SetNonblock(fd, true)
+	if err != nil {
+		glog.Error("Failed to set non-blocking:", err)
+		return nil, err
+	}
+
+	connection := NewWebsocketConnection(uint64(fd), conn, g.connMgr.WaitGroup(), g.connMgr, g.taskMgr)
 
 	return connection, nil
 }
 
-func (g *WebsocketGateway[T]) websocketFD(conn *websocket.Conn) int32 {
+func (g *WebsocketGateway[T]) websocketFD(conn *websocket.Conn) int {
 	tcpConn := reflect.Indirect(reflect.ValueOf(conn)).FieldByName("conn")
 	fdVal := tcpConn.FieldByName("fd")
 	pfdVal := reflect.Indirect(fdVal).FieldByName("pfd")
-	return int32(pfdVal.FieldByName("Sysfd").Int())
+	return int(pfdVal.FieldByName("Sysfd").Int())
 }

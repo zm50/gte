@@ -15,8 +15,8 @@ type ServerConfig struct {
 	listenIP                  string
 	listenPort                int
 	networkVersion            string
-	readTimeout               int
-	maxReadTimeout            int
+	readTry                   int
+	writeInternal             int
 	networkMode               int
 	maxConns                  int
 	maxPacketSize             int
@@ -48,15 +48,15 @@ var Config trait.ServerConfig = &ServerConfig{
 	listenIP:       "0.0.0.0",
 	listenPort:     8080,
 	networkVersion: "tcp4",
-	readTimeout:    100,
-	maxReadTimeout: 200,
+	readTry:       1,
+	writeInternal: 100,
 	networkMode:    constant.TCPNetowrkMode,
 
 	maxConns:      1024,
 	maxPacketSize: 4096,
 
 	epollTimeout:   -1,
-	epollEventSize: 1024,
+	epollEventSize: 128,
 
 	dispatcherQueues:          8,
 	dispatcherQueueLen:        128,
@@ -127,12 +127,12 @@ func (c *ServerConfig) NetworkVersion() string {
 	return c.networkVersion
 }
 
-func (c *ServerConfig) ReadTimeout() int {
-	return c.readTimeout
+func (c *ServerConfig) ReadTry() int {
+	return c.readTry
 }
 
-func (c *ServerConfig) MaxReadTimeout() int {
-	return c.maxReadTimeout
+func (c *ServerConfig) WriteInternal() int {
+	return c.writeInternal
 }
 
 func (c *ServerConfig) NetworkMode() int {
@@ -238,13 +238,13 @@ func (c *ServerConfig) WithNetworkVersion(networkVersion string) trait.ServerCon
 	return c
 }
 
-func (c *ServerConfig) WithReadTimeout(readTimeout int) trait.ServerConfig {
-	c.readTimeout = readTimeout
+func (c *ServerConfig) WithReadTry(readTry int) trait.ServerConfig {
+	c.readTry = readTry
 	return c
 }
 
-func (c *ServerConfig) WithMaxReadTimeout(maxReadTimeout int) trait.ServerConfig {
-	c.maxReadTimeout = maxReadTimeout
+func (c *ServerConfig) WithWriteInternal(writeInternal int) trait.ServerConfig {
+	c.writeInternal = writeInternal
 	return c
 }
 
