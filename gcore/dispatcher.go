@@ -36,6 +36,8 @@ func NewDispatcher[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) tr
 
 // Start 启动请求分发模块
 func (d *Dispatcher[T]) Start() {
+	glog.Info("dispatcher start...")
+
 	for i := 0; i < len(d.connQueue); i++ {
 		for j := 0; j < gconf.Config.DispatcherQueueLen(); j++ {
 			go d.Dispatch(d.connQueue[i])

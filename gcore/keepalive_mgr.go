@@ -28,6 +28,8 @@ func NewKeepAliveMgr[T any](connMgr trait.ConnMgr[T], connShards []*core.KVShard
 
 // NewKeepAliveMgr 启动连接存活管理器
 func (m *KeepAliveMgr[T]) Start() {
+	glog.Info("keepalive manager start...")
+
 	for _, connShard := range m.connShards {
 		go m.StartWorker(connShard)
 	}
@@ -38,17 +40,16 @@ func (k *KeepAliveMgr[T]) StartWorker(connShard *core.KVShard[int32, trait.Conne
 	ticker := time.NewTicker(k.healthCheckInterval)
 	for {
 		<-ticker.C
-		glog.Info("start to check connections")
 		connShard.RRange(func(id int32, conn trait.Connection[T]) {
-			if conn.IsActive() {
+			state := conn.State()
+			if state == constant.ConnActiveState {
 				// 设置为检查状态
 				conn.SetState(constant.ConnInspectState)
-			} else if conn.IsInspect() {
+			} else if state == constant.ConnInspectState {
 				// 设置为非活跃状态
 				conn.SetState(constant.ConnNotActiveState)
 				k.connMgr.PushConnSignal(NewConnSignal(conn, constant.ConnNotActiveSignal))
 			}
 		})
-		glog.Info("check connections done")
 	}
 }

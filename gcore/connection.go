@@ -36,6 +36,8 @@ type TCPConnection[T any] struct {
 	connMgr   trait.ConnMgr[T]
 	taskMgr   trait.TaskMgr[T]
 	taskQueue chan<- trait.Request[T]
+
+	closeOnce sync.Once
 }
 
 var _ trait.Connection[int] = (*TCPConnection[int])(nil)
@@ -54,6 +56,7 @@ func NewTCPConnection[T any](connID uint64, socket trait.Socket, wg *sync.WaitGr
 		connMgr:   connMgr,
 		taskMgr:   taskMgr,
 		taskQueue: taskMgr.ChooseQueue(connID),
+		closeOnce: sync.Once{},
 	}
 
 	return conn
@@ -66,9 +69,9 @@ func (c *TCPConnection[T]) ID() uint64 {
 
 // Send 发送数据给客户端
 func (c *TCPConnection[T]) Send(data []byte) error {
-	if !c.IsActive() && !c.IsInspect() {
+	if !c.IsAlive() {
 		// 非法的连接状态
-		return errors.Errorf("connection state is not active when send message, state: %d", c.state.Load())
+		return errors.Errorf("connection state is not alive when send message, state: %d", c.state.Load())
 	}
 
 	c.writeLock.Lock()
@@ -104,12 +107,11 @@ func (c *TCPConnection[T]) SendMsg(msgID uint32, data []byte) error {
 
 // Stop 关闭连接
 func (c *TCPConnection[T]) Stop() {
-	if !c.IsActive() {
-		return
-	}
-
 	c.SetState(constant.ConnCloseState)
-	c.Socket.Close()
+
+	c.closeOnce.Do(func() {
+		c.Socket.Close()
+	})
 }
 
 // BatchCommit 批量提交消息
@@ -146,19 +148,15 @@ func (c *TCPConnection[T]) BatchCommit() error {
 	return nil
 }
 
-// IsActive 连接是否活跃
-func (c *TCPConnection[T]) IsActive() bool {
-	return c.state.Load() == constant.ConnActiveState
+// IsAlive 连接是否存活
+func (c *TCPConnection[T]) IsAlive() bool {
+	state := c.state.Load()
+	return state == constant.ConnActiveState || state == constant.ConnInspectState
 }
 
 // IsNotActive 连接是否不活跃
 func (c *TCPConnection[T]) IsNotActive() bool {
 	return c.state.Load() == constant.ConnNotActiveState
-}
-
-// IsInspect 连接是否处于检查状态
-func (c *TCPConnection[T]) IsInspect() bool {
-	return c.state.Load() == constant.ConnInspectState
 }
 
 // IsClose 连接是否关闭
@@ -205,6 +203,8 @@ type WebsocketConnection[T any] struct {
 	connMgr   trait.ConnMgr[T]
 	taskMgr   trait.TaskMgr[T]
 	taskQueue chan<- trait.Request[T]
+
+	closeOnce sync.Once
 }
 
 var _ trait.Connection[int] = (*WebsocketConnection[int])(nil)
@@ -222,6 +222,7 @@ func NewWebsocketConnection[T any](connID uint64, conn *websocket.Conn, wg *sync
 		connMgr:   connMgr,
 		taskMgr:   taskMgr,
 		taskQueue: taskMgr.ChooseQueue(connID),
+		closeOnce: sync.Once{},
 	}
 }
 
@@ -282,9 +283,9 @@ func (w *WebsocketConnection[T]) ID() uint64 {
 
 // Send 发送数据给客户端
 func (w *WebsocketConnection[T]) Send(data []byte) error {
-	if !w.IsActive() && !w.IsInspect() {
+	if !w.IsAlive() {
 		// 非法的连接状态
-		return errors.Errorf("connection state is not active when send message, state: %d", w.state.Load())
+		return errors.Errorf("connection state is not alive when send message, state: %d", w.state.Load())
 	}
 
 	w.writeLock.Lock()
@@ -319,12 +320,11 @@ func (w *WebsocketConnection[T]) SendMsg(msgID uint32, data []byte) error {
 }
 
 func (w *WebsocketConnection[T]) Stop() {
-	if !w.IsActive() {
-		return
-	}
-
 	w.SetState(constant.ConnCloseState)
-	w.Close()
+
+	w.closeOnce.Do(func() {
+		w.Conn.Close()
+	})
 }
 
 func (w *WebsocketConnection[T]) BatchCommit() error {
@@ -364,18 +364,14 @@ func (w *WebsocketConnection[T]) BatchCommit() error {
 }
 
 // IsActive 连接是否活跃
-func (w *WebsocketConnection[T]) IsActive() bool {
-	return w.state.Load() == constant.ConnActiveState
+func (w *WebsocketConnection[T]) IsAlive() bool {
+	state := w.state.Load()
+	return state == constant.ConnActiveState || state == constant.ConnInspectState
 }
 
 // IsNotActive 连接是否不活跃
 func (w *WebsocketConnection[T]) IsNotActive() bool {
 	return w.state.Load() == constant.ConnNotActiveState
-}
-
-// IsInspect 连接是否处于检查状态
-func (w *WebsocketConnection[T]) IsInspect() bool {
-	return w.state.Load() == constant.ConnInspectState
 }
 
 // IsClose 连接是否关闭

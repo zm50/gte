@@ -49,6 +49,8 @@ func (g *TCPGateway[T]) ListenAndServe() error {
 		return err
 	}
 
+	glog.Info("tcp gateway start...")
+
 	for {
 		conn, err := g.Accept()
 		if err != nil {
@@ -135,6 +137,8 @@ func (g *WebsocketGateway[T]) ListenAndServe() error {
 			g.connMgr.Add(conn)
 		}
 	}()
+
+	glog.Info("websocket gateway start...")
 
 	err := http.ListenAndServe(g.address, nil)
 

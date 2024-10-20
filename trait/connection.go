@@ -19,9 +19,8 @@ type Connection[T any] interface {
 	SendMsg(msgID uint32, data []byte) error
 	Stop()
 	BatchCommit() error
-	IsActive() bool
+	IsAlive() bool
 	IsNotActive() bool
-	IsInspect() bool
 	IsClose() bool
 	State() uint32
 	SetState(state uint32)

@@ -173,6 +173,8 @@ func (e *ConnMgr[T]) BatchCommit(n int) {
 
 // Start 启动连接管理器
 func (e *ConnMgr[T]) Start() {
+	glog.Info("connection manager start...")
+
 	e.dispatcher.Start()
 
 	e.keepAliveMgr.Start()
@@ -197,21 +199,18 @@ func (e *ConnMgr[T]) Start() {
 			continue
 		}
 
-		now := time.Now()
-		glog.Info("epoll wait events:", n)
 		e.BatchCommit(n)
-		glog.Infof("epoll events processed, cost: %s\n", time.Now().Sub(now).String())
 	}
 }
 
 // Stop 结束连接管理器
 func (e *ConnMgr[T]) Stop() {
+	defer syscall.Close(e.epfd)
+
 	n := e.connShards.Count()
 	for conn := range e.connShards.ValuesIter(n) {
-		conn.Close()
+		conn.Stop()
 	}
-
-	syscall.Close(e.epfd)
 }
 
 // StartConnSignalHookWorkers 启动连接信号钩子消费者工作池

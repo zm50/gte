@@ -64,7 +64,7 @@ var Config trait.ServerConfig = &ServerConfig{
 
 	taskQueues:          8,
 	taskQueueLen:        128,
-	workersPerTaskQueue: 8,
+	workersPerTaskQueue: 4,
 
 	websocketQueueLen: 16,
 
@@ -72,7 +72,7 @@ var Config trait.ServerConfig = &ServerConfig{
 	connSignalQueueLen:        4,
 	workersPerConnSignalQueue: 2,
 	connShardCount:            16,
-	healthCheckInterval:       100000,
+	healthCheckInterval:       120000,
 
 	logFilename:   "./gte.log",
 	logMaxSize:    100,

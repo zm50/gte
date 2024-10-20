@@ -2,6 +2,7 @@ package gcore
 
 import (
 	"github.com/zm50/gte/gconf"
+	"github.com/zm50/gte/glog"
 	"github.com/zm50/gte/trait"
 )
 
@@ -33,6 +34,8 @@ func NewTaskMgr[T any]() trait.TaskMgr[T] {
 
 // Start 启动任务管理器
 func (m *TaskMgr[T]) Start() {
+	glog.Info("task manager start...")
+
 	for i := 0; i < len(m.taskQueues); i++ {
 		for j := 0; j < gconf.Config.WorkersPerTaskQueue(); j++ {
 			go m.StartWorker(m.taskQueues[i])
