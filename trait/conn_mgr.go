@@ -20,4 +20,5 @@ type ConnMgr[T any] interface {
 	ChooseConnSignalQueue(connID uint64) chan <- ConnSignal[T]
 	PushConnSignal(signal ConnSignal[T])
 	WaitGroup() *sync.WaitGroup
+	OnlineConns() int32
 }

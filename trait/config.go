@@ -10,7 +10,7 @@ type ServerConfig interface {
 	ReadTry() int
 	WriteInternal() int
 	NetworkMode() int
-	MaxConns() int
+	MaxConns() int32
  	MaxPacketSize() int
 	EpollTimeout() int
 	EpollEventSize() int
@@ -38,7 +38,7 @@ type ServerConfig interface {
 	WithReadTry(int) ServerConfig
 	WithWriteInternal(int) ServerConfig
 	WithNetworkMode(int) ServerConfig
-	WithMaxConns(int) ServerConfig
+	WithMaxConns(int32) ServerConfig
  	WithMaxPacketSize(int) ServerConfig
 	WithEpollTimeout(int) ServerConfig
 	WithEpollEventSize(int) ServerConfig

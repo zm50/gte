@@ -6,11 +6,16 @@ import (
 	"net/http"
 	"reflect"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/zm50/gte/gconf"
 	"github.com/zm50/gte/glog"
 	"github.com/zm50/gte/trait"
+)
+
+const (
+	connManyWait = 3 * time.Second
 )
 
 // TCPGateway 网关模块，处理客户端TCP连接建立与注册
@@ -52,6 +57,12 @@ func (g *TCPGateway[T]) ListenAndServe() error {
 	glog.Info("tcp gateway start...")
 
 	for {
+		if g.connMgr.OnlineConns() >= gconf.Config.MaxConns() {
+			glog.Error("too many connections")
+			time.Sleep(connManyWait)
+			continue
+		}
+
 		conn, err := g.Accept()
 		if err != nil {
 			glog.Error("Accept error:", err)
@@ -117,6 +128,11 @@ func NewWebsocketGateway[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[
 
 func (g *WebsocketGateway[T]) ListenAndServe() error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if g.connMgr.OnlineConns() >= gconf.Config.MaxConns() {
+			glog.Error("too many connections")
+			return
+		}
+
 		conn, err := g.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			glog.Error("websocket upgrade error:", err)

@@ -18,7 +18,7 @@ type ServerConfig struct {
 	readTry                   int
 	writeInternal             int
 	networkMode               int
-	maxConns                  int
+	maxConns                  int32
 	maxPacketSize             int
 	epollTimeout              int
 	epollEventSize            int
@@ -139,7 +139,7 @@ func (c *ServerConfig) NetworkMode() int {
 	return c.networkMode
 }
 
-func (c *ServerConfig) MaxConns() int {
+func (c *ServerConfig) MaxConns() int32 {
 	return c.maxConns
 }
 
@@ -253,7 +253,7 @@ func (c *ServerConfig) WithNetworkMode(networkMode int) trait.ServerConfig {
 	return c
 }
 
-func (c *ServerConfig) WithMaxConns(maxConns int) trait.ServerConfig {
+func (c *ServerConfig) WithMaxConns(maxConns int32) trait.ServerConfig {
 	c.maxConns = maxConns
 	return c
 }

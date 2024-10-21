@@ -3,6 +3,7 @@ package gcore
 import (
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -19,6 +20,8 @@ type ConnMgr[T any] struct {
 	epfd int
 
 	timeout int
+
+	onlineConns atomic.Int32
 
 	events []syscall.EpollEvent
 
@@ -81,6 +84,10 @@ func (e *ConnMgr[T]) Get(fd int32) (trait.Connection[T], bool) {
 
 // Add 在连接管理器中添加连接
 func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
+	if e.OnlineConns() >= gconf.Config.MaxConns() {
+		return errors.New("online connections limit reached")
+	}
+
 	sock, err := conn.File()
 	if err != nil {
 		glog.Error("get socket file descriptor error:", err)
@@ -103,6 +110,8 @@ func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
 		return err
 	}
 
+	defer e.onlineConns.Add(1)
+
 	e.connShards.Set(int32(fd), conn)
 
 	// 通知连接信号处理队列
@@ -113,16 +122,14 @@ func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
 
 // Del 在连接管理器中删除连接
 func (e *ConnMgr[T]) Del(fd int32) error {
-	// 通知连接信号处理队列
 	conn, ok := e.Get(fd)
-	if ok {
-		e.PushConnSignal(NewConnSignal[T](conn, constant.ConnStopSignal))
-	} else {
+	if !ok {
 		glog.Error("call conn stop hook failed, connection not found, conn fd:", fd)
+		return errors.New("connection not found")
 	}
 
 	event := syscall.EpollEvent{
-		Events: syscall.EPOLLIN,
+		Events: syscall.EPOLLIN | syscall.EPOLLRDHUP,
 		Fd:     int32(fd),
 	}
 	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, int(fd), &event)
@@ -130,6 +137,11 @@ func (e *ConnMgr[T]) Del(fd int32) error {
 		glog.Error("epoll ctl del error:", err)
 		return err
 	}
+
+	defer e.onlineConns.Add(-1)
+
+	// 通知连接信号处理队列
+	e.PushConnSignal(NewConnSignal[T](conn, constant.ConnStopSignal))
 
 	e.connShards.Del(fd)
 
@@ -272,4 +284,9 @@ func (m *ConnMgr[T]) PushConnSignal(signal trait.ConnSignal[T]) {
 // WaitGroup 等待组
 func (m *ConnMgr[T]) WaitGroup() *sync.WaitGroup {
 	return m.wg
+}
+
+// OnlineConns 在线连接数
+func (m *ConnMgr[T]) OnlineConns() int32 {
+	return m.onlineConns.Load()
 }
