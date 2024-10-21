@@ -344,9 +344,14 @@ func (w *WebsocketConnection[T]) BatchCommit() error {
 			return err
 		}
 
-		if messageType == websocket.BinaryMessage {
+		if messageType == websocket.PingMessage {
 			w.SetState(constant.ConnActiveState)
 			continue
+		}
+
+		if messageType != websocket.BinaryMessage {
+			glog.Errorf("not support message type: %d\n", messageType)
+			return errors.New("not support message type")
 		}
 
 		msg, err := gpack.UnpackWebsocket(data)
