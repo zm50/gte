@@ -86,13 +86,20 @@ func (e *Engine[T]) TaskFlow(id uint32) trait.TaskFlow[T] {
 }
 
 // Group 路由分组
-func (e *Engine[T]) Group(flow ...trait.TaskFunc[T]) trait.RouterGroup[T] {
-	return e.taskMgr.Group(flow...)
+func (e *Engine[T]) Group(flow ...TaskFunc[T]) trait.RouterGroup[T] {
+	fw := make([]trait.TaskFunc[T], 0, len(flow))
+	for _, fn := range flow {
+		fw = append(fw, fn)
+	}
+
+	return e.taskMgr.Group(fw...)
 }
 
 // Use 注册插件
-func (e *Engine[T]) Use(flow ...trait.TaskFunc[T]) {
-	e.taskMgr.Use(flow...)
+func (e *Engine[T]) Use(flow ...TaskFunc[T]) {
+	for _, fn := range flow {
+		e.taskMgr.Use(fn)
+	}
 }
 
 // OnConnStart 注册连接建立的回调函数
