@@ -3,7 +3,7 @@ package gcore
 import (
 	"fmt"
 
-	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/common/constant"
 	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/gpack"
 	"github.com/zm50/gte/trait"

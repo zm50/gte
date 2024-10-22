@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/common/constant"
 	"github.com/zm50/gte/core"
 	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"

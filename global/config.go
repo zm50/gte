@@ -1,7 +1,7 @@
 package global
 
 import (
-	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/common/constant"
 	"github.com/zm50/gte/core"
 	"github.com/zm50/gte/trait"
 )

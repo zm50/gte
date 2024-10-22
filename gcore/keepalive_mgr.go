@@ -3,7 +3,7 @@ package gcore
 import (
 	"time"
 
-	"github.com/zm50/gte/constant"
+	"github.com/zm50/gte/common/constant"
 	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
