@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -54,6 +55,11 @@ func UnpackTCPHeader(msg trait.Message, reader io.Reader) error {
 
 	// read data  len (4 byte) and id (4 bytes)
 	msg.SetDataLen(binary.LittleEndian.Uint32(header[:4]))
+
+	if msg.DataLen() > global.Config().MaxPacketSize() {
+		return errors.New("data len too long")
+	}
+
 	msg.SetID(binary.LittleEndian.Uint32(header[4:8]))
 
 	return nil

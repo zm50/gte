@@ -18,7 +18,7 @@ type ServerConfig struct {
 	writeInternal             int
 	networkMode               int
 	maxConns                  int32
-	maxPacketSize             int
+	maxPacketSize             uint32
 	epollTimeout              int
 	epollEventSize            int
 	dispatcherQueues          int
@@ -105,7 +105,7 @@ func (c *ServerConfig) MaxConns() int32 {
 	return c.maxConns
 }
 
-func (c *ServerConfig) MaxPacketSize() int {
+func (c *ServerConfig) MaxPacketSize() uint32 {
 	return c.maxPacketSize
 }
 
@@ -224,7 +224,7 @@ func (c *ServerConfig) WithMaxConns(maxConns int32) trait.ServerConfig {
 	return c
 }
 
-func (c *ServerConfig) WithMaxPacketSize(maxPacketSize int) trait.ServerConfig {
+func (c *ServerConfig) WithMaxPacketSize(maxPacketSize uint32) trait.ServerConfig {
 	c.maxPacketSize = maxPacketSize
 	return c
 }

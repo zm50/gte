@@ -11,7 +11,7 @@ type ServerConfig interface {
 	WriteInternal() int
 	NetworkMode() int
 	MaxConns() int32
- 	MaxPacketSize() int
+ 	MaxPacketSize() uint32
 	EpollTimeout() int
 	EpollEventSize() int
 	DispatcherQueues() int
@@ -40,7 +40,7 @@ type ServerConfig interface {
 	WithWriteInternal(int) ServerConfig
 	WithNetworkMode(int) ServerConfig
 	WithMaxConns(int32) ServerConfig
- 	WithMaxPacketSize(int) ServerConfig
+ 	WithMaxPacketSize(uint32) ServerConfig
 	WithEpollTimeout(int) ServerConfig
 	WithEpollEventSize(int) ServerConfig
 	WithDispatcherQueues(int) ServerConfig
