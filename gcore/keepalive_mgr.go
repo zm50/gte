@@ -4,9 +4,7 @@ import (
 	"time"
 
 	"github.com/zm50/gte/constant"
-	"github.com/zm50/gte/core"
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -14,21 +12,21 @@ import (
 type KeepAliveMgr[T any] struct {
 	connMgr             trait.ConnMgr[T]
 	healthCheckInterval time.Duration
-	connShards          []*core.KVShard[int32, trait.Connection[T]]
+	connShards          []trait.KVShard[int32, trait.Connection[T]]
 }
 
 // NewKeepAliveMgr 创建连接存活管理器
-func NewKeepAliveMgr[T any](connMgr trait.ConnMgr[T], connShards []*core.KVShard[int32, trait.Connection[T]]) trait.KeepAliveMgr[T] {
+func NewKeepAliveMgr[T any](connMgr trait.ConnMgr[T], connShards []trait.KVShard[int32, trait.Connection[T]]) trait.KeepAliveMgr[T] {
 	return &KeepAliveMgr[T]{
 		connMgr:             connMgr,
-		healthCheckInterval: time.Millisecond * time.Duration(gconf.Config.HealthCheckInterval()),
+		healthCheckInterval: time.Millisecond * time.Duration(global.Config().HealthCheckInterval()),
 		connShards:          connShards,
 	}
 }
 
 // NewKeepAliveMgr 启动连接存活管理器
 func (m *KeepAliveMgr[T]) Start() {
-	glog.Info("keepalive manager start...")
+	global.Logger().Info("keepalive manager start...")
 
 	for _, connShard := range m.connShards {
 		go m.StartWorker(connShard)
@@ -36,7 +34,7 @@ func (m *KeepAliveMgr[T]) Start() {
 }
 
 // StartWorker 启动健康检查工作
-func (k *KeepAliveMgr[T]) StartWorker(connShard *core.KVShard[int32, trait.Connection[T]]) {
+func (k *KeepAliveMgr[T]) StartWorker(connShard trait.KVShard[int32, trait.Connection[T]]) {
 	ticker := time.NewTicker(k.healthCheckInterval)
 	for {
 		<-ticker.C

@@ -8,4 +8,5 @@ type Message interface {
 	SetID(uint32)
 	SetDataLen(uint32)
 	SetData([]byte)
+	ResetData(...byte)
 }

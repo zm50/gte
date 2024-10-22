@@ -54,3 +54,8 @@ func (m *Message) SetDataLen(dataLen uint32) {
 func (m *Message) SetData(data []byte) {
 	m.data = data
 }
+
+// ResetData 重置消息内容
+func (m *Message) ResetData(data ...byte) {
+	m.data = append(m.data[:0], data...)
+}

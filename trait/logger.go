@@ -1,6 +1,6 @@
 package trait
 
-type Log interface {
+type Logger interface {
 	Info(...any)
 	Error(...any)
 	Warn(...any)

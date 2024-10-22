@@ -44,43 +44,46 @@ func PackWebsocket(msg trait.Message) []byte {
 	return data
 }
 
-// UnpackTCPHeader 从TCP连接中读取数据，解包成Message
-func UnpackTCPHeader[T any](conn trait.Connection[T]) ([]byte, error) {
+// UnpackTCPHeader 从TCP连接中读取消息头部
+func UnpackTCPHeader(msg trait.Message, reader io.Reader) error {
 	header := make([]byte, 8)
-	_, err := io.ReadFull(conn, header)
+	_, err := io.ReadFull(reader, header)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return header, nil
-}
-
-func UnpackTCPBody(reader io.Reader, header []byte) (trait.Message, error) {
 	// read data  len (4 byte) and id (4 bytes)
-	dataLen := binary.LittleEndian.Uint32(header[:4])
-	id := binary.LittleEndian.Uint32(header[4:8])
+	msg.SetDataLen(binary.LittleEndian.Uint32(header[:4]))
+	msg.SetID(binary.LittleEndian.Uint32(header[4:8]))
 
-	data := make([]byte, dataLen)
-	n, err := io.ReadFull(reader, data)
-	if err != nil || n != int(dataLen) {
-		return nil, errors.Wrap(err, "read data error")
-	}
-
-	msg := NewMessage(id, data)
-
-	return msg, nil	
+	return nil
 }
 
-// UnpackWebsocket 基于websocket读取的数据，解包成Message
-func UnpackWebsocket(data []byte) (trait.Message, error) {
+// UnpackTCPBody 从TCP连接中读取消息体
+func UnpackTCPBody(msg trait.Message, reader io.Reader) error {
+	data := make([]byte, msg.DataLen())
+	n, err := io.ReadFull(reader, data)
+	if err != nil || n != int(msg.DataLen()) {
+		return errors.Wrap(err, "read data error")
+	}
+
+	msg.ResetData(data...)
+
+	return nil
+}
+
+// UnpackWebsocket 从websocket连接中读取消息
+func UnpackWebsocket(msg trait.Message, data []byte) error {
 	if len(data) < 4 {
-		return nil, errors.New("data too short")
+		return errors.New("data too short")
 	}
 
 	// id (4 bytes)
-	id := binary.LittleEndian.Uint32(data[4:8])
+	msg.SetID(binary.LittleEndian.Uint32(data[:4]))
 
-	msg := NewMessage(id, data[4:])
+	msg.SetDataLen(uint32(len(data) - 4))
 
-	return msg, nil
+	msg.ResetData(data[4:]...)
+
+	return nil
 }

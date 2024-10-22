@@ -1,10 +1,9 @@
-package gconf
+package core
 
 import (
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/zm50/gte/constant"
 	"github.com/zm50/gte/trait"
 
 	"gopkg.in/yaml.v3"
@@ -34,6 +33,7 @@ type ServerConfig struct {
 	workersPerConnSignalQueue int
 	connShardCount            int
 	healthCheckInterval       int
+	messagePoolSize           int
 	logFilename               string // 日志文件存放目录
 	logMaxSize                int    // 文件大小限制,单位MB
 	logMaxBackups             int    // 最大保留日志文件数量
@@ -42,44 +42,6 @@ type ServerConfig struct {
 }
 
 var _ trait.ServerConfig = (*ServerConfig)(nil)
-
-// Config gte框架默认配置
-var Config trait.ServerConfig = &ServerConfig{
-	listenIP:       "0.0.0.0",
-	listenPort:     8080,
-	networkVersion: "tcp4",
-	readTry:       1,
-	writeInternal: 100,
-	networkMode:    constant.TCPNetowrkMode,
-
-	maxConns:      1024,
-	maxPacketSize: 4096,
-
-	epollTimeout:   -1,
-	epollEventSize: 128,
-
-	dispatcherQueues:          8,
-	dispatcherQueueLen:        128,
-	workersPerDispatcherQueue: 2,
-
-	taskQueues:          8,
-	taskQueueLen:        128,
-	workersPerTaskQueue: 4,
-
-	websocketQueueLen: 16,
-
-	connSignalQueues:          2,
-	connSignalQueueLen:        4,
-	workersPerConnSignalQueue: 2,
-	connShardCount:            16,
-	healthCheckInterval:       120000,
-
-	logFilename:   "./gte.log",
-	logMaxSize:    100,
-	logMaxBackups: 100,
-	logMaxAge:     30,
-	logCompress:   false,
-}
 
 // Load 从配置文件中加载配置
 func (c *ServerConfig) Load(filePath string) error {
@@ -201,6 +163,10 @@ func (c *ServerConfig) ConnShardCount() int {
 
 func (c *ServerConfig) HealthCheckInterval() int {
 	return c.healthCheckInterval
+}
+
+func (c *ServerConfig) MessagePoolSize() int {
+	return c.messagePoolSize
 }
 
 func (c *ServerConfig) LogFilename() string {
@@ -330,6 +296,11 @@ func (c *ServerConfig) WithConnShardCount(connShardCount int) trait.ServerConfig
 
 func (c *ServerConfig) WithHealthCheckInterval(healthCheckInterval int) trait.ServerConfig {
 	c.healthCheckInterval = healthCheckInterval
+	return c
+}
+
+func (c *ServerConfig) WithMessagePoolSize(messagePoolSize int) trait.ServerConfig {
+	c.messagePoolSize = messagePoolSize
 	return c
 }
 

@@ -26,6 +26,7 @@ type ServerConfig interface {
 	WorkersPerConnSignalQueue() int
 	ConnShardCount() int
 	HealthCheckInterval() int
+	MessagePoolSize() int
 	LogFilename() string
 	LogMaxSize() int
 	LogMaxBackups() int
@@ -54,6 +55,7 @@ type ServerConfig interface {
 	WithWorkersPerConnSignalQueue(int) ServerConfig
 	WithConnShardCount(connShardCount int) ServerConfig
 	WithHealthCheckInterval(int) ServerConfig
+	WithMessagePoolSize(int) ServerConfig
 	WithLogFilename(string) ServerConfig
 	WithLogMaxSize(int) ServerConfig
 	WithLogMaxBackups(int) ServerConfig

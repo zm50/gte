@@ -1,21 +1,22 @@
 package core
 
-import "sync"
+import (
+	"sync"
 
-// Integer 整数类型
-type Integer interface {
-    ~int | ~int32 | ~int64 |
-    ~uint | ~uint32 | ~uint64
-}
+	"github.com/zm50/gte/common/types"
+	"github.com/zm50/gte/trait"
+)
 
 // KVShard 键值对分片
-type KVShard[K Integer, V any] struct {
+type KVShard[K types.Integer, V any] struct {
 	items map[K]V
 	sync.RWMutex
 }
 
+var _ trait.KVShard[int, int] = (*KVShard[int, int])(nil)
+
 // NewKVShard 创建一个新的键值对分片
-func NewKVShard[K Integer, V any]() *KVShard[K, V] {
+func NewKVShard[K types.Integer, V any]() trait.KVShard[K, V] {
 	return &KVShard[K, V]{
 		items: make(map[K]V),
 		RWMutex: sync.RWMutex{},
@@ -91,14 +92,21 @@ func (s *KVShard[K, V]) WRangeKeys(fn func (K, V, bool), keys ...K) {
 	}
 }
 
-// KVShards 键值对分片集合
-type KVShards[K Integer, V any] struct {
-	shards []*KVShard[K, V]
+// Items 获取分片中所有的键值对
+func (s *KVShard[K, V]) Items() map[K]V {
+	return s.items
 }
 
+// KVShards 键值对分片集合
+type KVShards[K types.Integer, V any] struct {
+	shards []trait.KVShard[K, V]
+}
+
+var _ trait.KVShards[int, any] = (*KVShards[int, any])(nil)
+
 // NewKVShards 创建一个新的键值对分片集合
-func NewKVShards[K Integer, V any](numShards int) *KVShards[K, V] {
-	shards := make([]*KVShard[K, V], numShards)
+func NewKVShards[K types.Integer, V any](numShards int) *KVShards[K, V] {
+	shards := make([]trait.KVShard[K, V], numShards)
 	for i := 0; i < numShards; i++ {
 		shards[i] = NewKVShard[K, V]()
 	}
@@ -109,7 +117,7 @@ func NewKVShards[K Integer, V any](numShards int) *KVShards[K, V] {
 }
 
 // GetShard 获取分片
-func (s *KVShards[K, V]) GetShard(key K) *KVShard[K, V] {
+func (s *KVShards[K, V]) GetShard(key K) trait.KVShard[K, V] {
 	return s.shards[key % K(len(s.shards))]
 }
 
@@ -134,7 +142,7 @@ func (s *KVShards[K, V]) Count() int {
 	for i := 0; i < len(s.shards); i++ {
 		shard := s.shards[i]
 		shard.RLock()
-		count += len(shard.items)
+		count += len(shard.Items())
 		shard.RUnlock()
 	}
 	return count
@@ -149,9 +157,9 @@ func (s *KVShards[K, V]) KeysIter(n int) <- chan K {
 		wg.Add(n)
 		for i := 0; i < n; i++ {
 			shard := s.shards[i]
-			go func(shard *KVShard[K, V]) {
+			go func(shard trait.KVShard[K, V]) {
 				shard.RLock()
-				for key := range shard.items {
+				for key := range shard.Items() {
 					keysCh <- key
 				}
 				shard.RUnlock()
@@ -174,9 +182,9 @@ func (s *KVShards[K, V]) ValuesIter(n int) <- chan V {
 		wg.Add(n)
 		for i := 0; i < n; i++ {
 			shard := s.shards[i]
-			go func(shard *KVShard[K, V]) {
+			go func(shard trait.KVShard[K, V]) {
 				shard.RLock()
-				for _, value := range shard.items {
+				for _, value := range shard.Items() {
 					valuesCh <- value
 				}
 				shard.RUnlock()
@@ -190,25 +198,19 @@ func (s *KVShards[K, V]) ValuesIter(n int) <- chan V {
 	return valuesCh
 }
 
-// KVItem 键值对
-type KVItem[K Integer, V any] struct {
-	Key K
-	Value V
-}
-
 // ItemsIter 获取分片集合中所有键值对的迭代器
-func (s *KVShards[K, V]) ItemsIter(n int) <- chan *KVItem[K, V] {
-	itemsCh := make(chan *KVItem[K, V], n)
+func (s *KVShards[K, V]) ItemsIter(n int) <- chan *types.KVItem[K, V] {
+	itemsCh := make(chan *types.KVItem[K, V], n)
 	go func() {
 		n := len(s.shards)
 		wg := sync.WaitGroup{}
 		wg.Add(n)
 		for i := 0; i < n; i++ {
 			shard := s.shards[i]
-			go func(shard *KVShard[K, V]) {
+			go func(shard trait.KVShard[K, V]) {
 				shard.RLock()
-				for key, value := range shard.items {
-					itemsCh <- &KVItem[K, V]{key, value}
+				for key, value := range shard.Items() {
+					itemsCh <- &types.KVItem[K, V]{Key: key, Value: value}
 				}
 				shard.RUnlock()
 				wg.Done()
@@ -244,9 +246,9 @@ func (s *KVShards[K, V]) Values() []V {
 }
 
 // Items 获取分片集合中所有键值对
-func (s *KVShards[K, V]) Items() []*KVItem[K, V] {
+func (s *KVShards[K, V]) Items() []*types.KVItem[K, V] {
 	count := s.Count()
-	items := make([]*KVItem[K, V], 0, count)
+	items := make([]*types.KVItem[K, V], 0, count)
 	for item := range s.ItemsIter(count) {
 		items = append(items, item)
 	}
@@ -255,7 +257,7 @@ func (s *KVShards[K, V]) Items() []*KVItem[K, V] {
 }
 
 // Shards 获取所有的分片信息
-func (s *KVShards[K, V]) Shards() []*KVShard[K, V] {
+func (s *KVShards[K, V]) Shards() []trait.KVShard[K, V] {
 	return s.shards
 }
 
@@ -264,7 +266,7 @@ func (s *KVShards[K, V]) Range(fn func (K, V)) {
 	for i := 0; i < len(s.shards); i++ {
 		shard := s.shards[i]
 		shard.RLock()
-		for key, value := range shard.items {
+		for key, value := range shard.Items() {
 			fn(key, value)
 		}
 		shard.RUnlock()

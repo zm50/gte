@@ -3,8 +3,7 @@ package gcore
 import (
 	"time"
 
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -22,9 +21,9 @@ var _ trait.Dispatcher[any] = (*Dispatcher[any])(nil)
 
 // NewDispatcher 创建一个请求分发器
 func NewDispatcher[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Dispatcher[T] {
-	connQueue := make([]chan trait.Connection[T], gconf.Config.DispatcherQueues())
+	connQueue := make([]chan trait.Connection[T], global.Config().DispatcherQueues())
 	for i := 0; i < len(connQueue); i++ {
-		connQueue[i] = make(chan trait.Connection[T], gconf.Config.DispatcherQueueLen())
+		connQueue[i] = make(chan trait.Connection[T], global.Config().DispatcherQueueLen())
 	}
 
 	return &Dispatcher[T]{
@@ -36,10 +35,10 @@ func NewDispatcher[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) tr
 
 // Start 启动请求分发模块
 func (d *Dispatcher[T]) Start() {
-	glog.Info("dispatcher start...")
+	global.Logger().Info("dispatcher start...")
 
 	for i := 0; i < len(d.connQueue); i++ {
-		for j := 0; j < gconf.Config.DispatcherQueueLen(); j++ {
+		for j := 0; j < global.Config().DispatcherQueueLen(); j++ {
 			go d.Dispatch(d.connQueue[i])
 		}
 	}
@@ -51,9 +50,9 @@ func (d *Dispatcher[T]) Dispatch(connQueue chan trait.Connection[T]) {
 	for conn := range connQueue {
 		err := conn.BatchCommit()
 		if err != nil {
-			glog.Error("dispatcher batch commit error: ", err)
+			global.Logger().Error("dispatcher batch commit error: ", err)
 			if d.connMgr.Del(int32(conn.ID())) != nil {
-				glog.Error("del conn error: ", err)
+				global.Logger().Error("del conn error: ", err)
 			}
 		}
 	}

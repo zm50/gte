@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -34,13 +33,13 @@ var _ trait.Gateway[any] = (*TCPGateway[any])(nil)
 // NewTCPGateway 创建网关实例
 func NewTCPGateway[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[T]) trait.Gateway[T] {
 	address := net.TCPAddr{
-		IP:   net.ParseIP(gconf.Config.ListenIP()),
-		Port: gconf.Config.ListenPort(),
+		IP:   net.ParseIP(global.Config().ListenIP()),
+		Port: global.Config().ListenPort(),
 	}
 
 	return &TCPGateway[T]{
 		address: address,
-		version: gconf.Config.NetworkVersion(),
+		version: global.Config().NetworkVersion(),
 		connMgr: connMgr,
 		taskMgr: taskMgr,
 	}
@@ -54,18 +53,18 @@ func (g *TCPGateway[T]) ListenAndServe() error {
 		return err
 	}
 
-	glog.Info("tcp gateway start...")
+	global.Logger().Info("tcp gateway start...")
 
 	for {
-		if g.connMgr.OnlineConns() >= gconf.Config.MaxConns() {
-			glog.Error("too many connections")
+		if g.connMgr.OnlineConns() >= global.Config().MaxConns() {
+			global.Logger().Error("too many connections")
 			time.Sleep(connManyWait)
 			continue
 		}
 
 		conn, err := g.Accept()
 		if err != nil {
-			glog.Error("Accept error:", err)
+			global.Logger().Error("Accept error:", err)
 			continue
 		}
 
@@ -77,19 +76,19 @@ func (g *TCPGateway[T]) ListenAndServe() error {
 func (g *TCPGateway[T]) Accept() (trait.Connection[T], error) {
 	conn, err := g.listener.AcceptTCP()
 	if err != nil {
-		glog.Error("AcceptTCP error:", err)
+		global.Logger().Error("AcceptTCP error:", err)
 		return nil, err
 	}
 
 	file, err := conn.File()
 	if err != nil {
-		glog.Error("Failed to get file descriptor:", err)
+		global.Logger().Error("Failed to get file descriptor:", err)
 		return nil, err
 	}
 
 	err = syscall.SetNonblock(int(file.Fd()), true)
 	if err != nil {
-		glog.Error("Failed to set non-blocking:", err)
+		global.Logger().Error("Failed to set non-blocking:", err)
 		return nil, err
 	}
 
@@ -119,7 +118,7 @@ func NewWebsocketGateway[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[
 				return true
 			},
 		},
-		address: fmt.Sprintf("%s:%d", gconf.Config.ListenIP(), gconf.Config.ListenPort()),
+		address: fmt.Sprintf("%s:%d", global.Config().ListenIP(), global.Config().ListenPort()),
 		connCh:  make(chan *websocket.Conn, 1024),
 		connMgr: connMgr,
 		taskMgr: taskMgr,
@@ -128,14 +127,14 @@ func NewWebsocketGateway[T any](connMgr trait.ConnMgr[T], taskMgr trait.TaskMgr[
 
 func (g *WebsocketGateway[T]) ListenAndServe() error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if g.connMgr.OnlineConns() >= gconf.Config.MaxConns() {
-			glog.Error("too many connections")
+		if g.connMgr.OnlineConns() >= global.Config().MaxConns() {
+			global.Logger().Error("too many connections")
 			return
 		}
 
 		conn, err := g.upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			glog.Error("websocket upgrade error:", err)
+			global.Logger().Error("websocket upgrade error:", err)
 			return
 		}
 
@@ -146,7 +145,7 @@ func (g *WebsocketGateway[T]) ListenAndServe() error {
 		for {
 			conn, err := g.Accept()
 			if err != nil {
-				glog.Error("Accept websocket error:", err)
+				global.Logger().Error("Accept websocket error:", err)
 				continue
 			}
 
@@ -154,7 +153,7 @@ func (g *WebsocketGateway[T]) ListenAndServe() error {
 		}
 	}()
 
-	glog.Info("websocket gateway start...")
+	global.Logger().Info("websocket gateway start...")
 
 	err := http.ListenAndServe(g.address, nil)
 
@@ -168,7 +167,7 @@ func (g *WebsocketGateway[T]) Accept() (trait.Connection[T], error) {
 
 	err := syscall.SetNonblock(fd, true)
 	if err != nil {
-		glog.Error("Failed to set non-blocking:", err)
+		global.Logger().Error("Failed to set non-blocking:", err)
 		return nil, err
 	}
 

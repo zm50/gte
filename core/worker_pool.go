@@ -1,4 +1,4 @@
-package gcore
+package core
 
 import (
 	"context"
@@ -14,6 +14,7 @@ var (
 	ErrWorkerPoolFull    = errors.New("worker pool is full")
 )
 
+// WorkerPool is a pool of workers that can execute tasks concurrently.
 type WorkerPool struct {
 	taskChan chan func()
 	isStopped atomic.Bool
@@ -31,6 +32,7 @@ func NewWorkerPool(bufferSize int, workerCount int) *WorkerPool {
 	return pool
 }
 
+// initialize creates workerCount number of workers and starts them.
 func (w *WorkerPool) initialize(workerCount int) {
 	for i := 0; i < workerCount; i++ {
 		go func() {
@@ -41,6 +43,7 @@ func (w *WorkerPool) initialize(workerCount int) {
 	}
 }
 
+// Push adds a task to the task channel. If the task channel is full, it returns an error.
 func (w *WorkerPool) Push(task func()) error {
 	if w.isStopped.Load() {
 		return ErrWorkerPoolStopped
@@ -55,6 +58,7 @@ func (w *WorkerPool) Push(task func()) error {
 	return nil
 }
 
+// BatchPush adds a batch of tasks to the task channel. If the task channel is full, it returns an error.
 func (w *WorkerPool) BatchPush(tasks ...func()) (int, error) {
 	for i, task := range tasks {
 		return i, w.Push(task)
@@ -63,6 +67,7 @@ func (w *WorkerPool) BatchPush(tasks ...func()) (int, error) {
 	return len(tasks), nil
 }
 
+// PushWithTimeOut adds a task to the task channel with a timeout. If the task channel is full, it returns an error.
 func (w *WorkerPool) PushWithTimeOut(timeout time.Duration, task func()) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -76,6 +81,7 @@ func (w *WorkerPool) PushWithTimeOut(timeout time.Duration, task func()) error {
 	return nil
 }
 
+// BatchPushWithTimeOut adds a batch of tasks to the task channel with a timeout. If the task channel is full, it returns an error.
 func (w *WorkerPool) BatchPushWithTimeOut(timeout time.Duration, tasks ...func()) (int, error) {
 	for i, task := range tasks {
 		err := w.PushWithTimeOut(timeout, task)
@@ -87,6 +93,7 @@ func (w *WorkerPool) BatchPushWithTimeOut(timeout time.Duration, tasks ...func()
 	return len(tasks), nil
 }
 
+// PushWithContext adds a task to the task channel with a context. If the task channel is full, it returns an error.
 func (w *WorkerPool) PushWithContext(ctx context.Context, task func()) error {
 	if w.isStopped.Load() {
 		return ErrWorkerPoolStopped
@@ -101,6 +108,7 @@ func (w *WorkerPool) PushWithContext(ctx context.Context, task func()) error {
 	return nil
 }
 
+// BatchPushWithContext adds a batch of tasks to the task channel with a context. If the task channel is full, it returns an error.
 func (w *WorkerPool) BatchPushWithContext(ctx context.Context, tasks ...func()) (int, error) {
 	for i, task := range tasks {
 		err := w.PushWithContext(ctx, task)
@@ -112,6 +120,7 @@ func (w *WorkerPool) BatchPushWithContext(ctx context.Context, tasks ...func()) 
 	return len(tasks), nil
 }
 
+// Stop stops the worker pool.
 func (w *WorkerPool) Stop() {
 	if !w.isStopped.CompareAndSwap(false, true) {
 		return

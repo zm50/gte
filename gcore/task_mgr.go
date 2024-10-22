@@ -1,8 +1,7 @@
 package gcore
 
 import (
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -17,9 +16,9 @@ var _ trait.TaskMgr[any] = (*TaskMgr[any])(nil)
 
 // NewTaskMgr 创建任务管理器
 func NewTaskMgr[T any]() trait.TaskMgr[T] {
-	taskQueues := make([]chan trait.Request[T], gconf.Config.TaskQueues())
+	taskQueues := make([]chan trait.Request[T], global.Config().TaskQueues())
 	for i := 0; i < len(taskQueues); i++ {
-		taskQueues[i] = make(chan trait.Request[T], gconf.Config.TaskQueueLen())
+		taskQueues[i] = make(chan trait.Request[T], global.Config().TaskQueueLen())
 	}
 
 	// 新建任务处理路由器与分组路由
@@ -34,10 +33,10 @@ func NewTaskMgr[T any]() trait.TaskMgr[T] {
 
 // Start 启动任务管理器
 func (m *TaskMgr[T]) Start() {
-	glog.Info("task manager start...")
+	global.Logger().Info("task manager start...")
 
 	for i := 0; i < len(m.taskQueues); i++ {
-		for j := 0; j < gconf.Config.WorkersPerTaskQueue(); j++ {
+		for j := 0; j < global.Config().WorkersPerTaskQueue(); j++ {
 			go m.StartWorker(m.taskQueues[i])
 		}
 	}

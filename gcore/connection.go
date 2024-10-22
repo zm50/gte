@@ -11,8 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"github.com/zm50/gte/constant"
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/gpack"
 	"github.com/zm50/gte/trait"
 )
@@ -77,15 +76,15 @@ func (c *TCPConnection[T]) Send(data []byte) error {
 	c.writeLock.Lock()
 	defer c.writeLock.Unlock()
 
-	NEXT:
+NEXT:
 
 	_, err := c.Socket.Write(data)
 	if err != nil {
 		if err == syscall.EAGAIN {
-			time.Sleep(time.Duration(gconf.Config.WriteInternal()) * time.Millisecond)
+			time.Sleep(time.Duration(global.Config().WriteInternal()) * time.Millisecond)
 			goto NEXT
 		}
-		glog.Errorf("send data to conn %d err: %v\n", c.id, err)
+		global.Logger().Errorf("send data to conn %d err: %v\n", c.id, err)
 		return err
 	}
 
@@ -95,7 +94,9 @@ func (c *TCPConnection[T]) Send(data []byte) error {
 // SendMsg 发送消息给客户端
 func (c *TCPConnection[T]) SendMsg(msgID uint32, data []byte) error {
 	//封装message消息
-	message := gpack.NewMessage(msgID, data)
+	message := global.MsgPool().Get()
+	message.SetID(msgID)
+	message.ResetData(data...)
 
 	//封包
 	response := gpack.PackTCP(message)
@@ -118,12 +119,15 @@ func (c *TCPConnection[T]) Stop() {
 func (c *TCPConnection[T]) BatchCommit() error {
 	defer c.wg.Done()
 
-	tryCount := gconf.Config.ReadTry()
+	tryCount := global.Config().ReadTry()
 
 	for tryCount > 0 {
 		tryCount--
 
-		header, err := gpack.UnpackTCPHeader(c)
+		// todo 这里需要优化，避免每次都创建新的message对象
+		message := global.MsgPool().Get()
+
+		err := gpack.UnpackTCPHeader(message, c)
 		if err != nil {
 			if err == syscall.EAGAIN {
 				// 读超时
@@ -133,14 +137,14 @@ func (c *TCPConnection[T]) BatchCommit() error {
 			return err
 		}
 
-		msg, err := gpack.UnpackTCPBody(c, header)
+		err = gpack.UnpackTCPBody(message, c)
 		if err != nil {
-			glog.Error("unpack tcp body err:", err)
+			global.Logger().Error("unpack tcp body err:", err)
 			return errors.WithMessage(err, "unpack tcp body err")
 		}
 
 		// 提交消息，处理数据
-		request := NewRequest(c, msg)
+		request := NewRequest(c, message)
 
 		c.taskQueue <- request
 	}
@@ -291,15 +295,15 @@ func (w *WebsocketConnection[T]) Send(data []byte) error {
 	w.writeLock.Lock()
 	defer w.writeLock.Unlock()
 
-	NEXT:
+NEXT:
 
 	_, err := w.Write(data)
 	if err != nil {
 		if err == syscall.EAGAIN {
-			time.Sleep(time.Duration(gconf.Config.WriteInternal()) * time.Millisecond)
+			time.Sleep(time.Duration(global.Config().WriteInternal()) * time.Millisecond)
 			goto NEXT
 		}
-		glog.Error("send data to conn %d err: %v", w.id, err)
+		global.Logger().Error("send data to conn %d err: %v", w.id, err)
 		return err
 	}
 
@@ -309,7 +313,9 @@ func (w *WebsocketConnection[T]) Send(data []byte) error {
 // SendMsg 发送消息给客户端
 func (w *WebsocketConnection[T]) SendMsg(msgID uint32, data []byte) error {
 	//封装message消息
-	message := gpack.NewMessage(msgID, data)
+	message := global.MsgPool().Get()
+	message.SetID(msgID)
+	message.ResetData(data...)
 
 	//封包
 	response := gpack.PackWebsocket(message)
@@ -330,7 +336,7 @@ func (w *WebsocketConnection[T]) Stop() {
 func (w *WebsocketConnection[T]) BatchCommit() error {
 	defer w.wg.Done()
 
-	tryCount := gconf.Config.ReadTry()
+	tryCount := global.Config().ReadTry()
 
 	for tryCount > 0 {
 		tryCount--
@@ -340,7 +346,7 @@ func (w *WebsocketConnection[T]) BatchCommit() error {
 				// 读超时
 				return nil
 			}
-			glog.Error("read websocket message err:", err)
+			global.Logger().Error("read websocket message err:", err)
 			return err
 		}
 
@@ -350,17 +356,19 @@ func (w *WebsocketConnection[T]) BatchCommit() error {
 		}
 
 		if messageType != websocket.BinaryMessage {
-			glog.Errorf("not support message type: %d\n", messageType)
+			global.Logger().Errorf("not support message type: %d\n", messageType)
 			return errors.New("not support message type")
 		}
 
-		msg, err := gpack.UnpackWebsocket(data)
+		message := global.MsgPool().Get()
+
+		err = gpack.UnpackWebsocket(message, data)
 		if err != nil {
-			glog.Error("unpack websocket message err:", err)
+			global.Logger().Error("unpack websocket message err:", err)
 			return err
 		}
 
-		request := NewRequest(w, msg)
+		request := NewRequest(w, message)
 
 		w.taskQueue <- request
 	}

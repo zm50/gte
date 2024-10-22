@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/zm50/gte/constant"
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
+	"github.com/zm50/gte/gpack"
 	"github.com/zm50/gte/trait"
 )
 
@@ -23,14 +23,14 @@ func NewEngine[T any]() (*Engine[T], error) {
 	// 新建任务管理器
 	taskMgr := NewTaskMgr[T]()
 
-	connMgr, err := NewConnMgr(gconf.Config.EpollTimeout(), gconf.Config.EpollEventSize(), taskMgr)
+	connMgr, err := NewConnMgr(global.Config().EpollTimeout(), global.Config().EpollEventSize(), taskMgr)
 	if err != nil {
-		glog.Error("NewConnMgr error:", err)
+		global.Logger().Error("NewConnMgr error:", err)
 		return nil, err
 	}
 
 	var gateway trait.Gateway[T]
-	switch gconf.Config.NetworkMode() {
+	switch global.Config().NetworkMode() {
 	case constant.TCPNetowrkMode:
 		gateway = NewTCPGateway(connMgr, taskMgr)
 	case constant.WebsocketNetworkMode:
@@ -40,7 +40,7 @@ func NewEngine[T any]() (*Engine[T], error) {
 	}
 
 	engine := &Engine[T]{
-		ServerConfig: gconf.Config,
+		ServerConfig: global.Config(),
 		gateway:      gateway,
 		connMgr:      connMgr,
 		taskMgr:      taskMgr,
@@ -51,21 +51,30 @@ func NewEngine[T any]() (*Engine[T], error) {
 
 // Run 启动服务器引擎
 func (e *Engine[T]) Run() error {
-	glog.Init()
+	e.setup()
 
 	fmt.Print(constant.Logo)
-	glog.Infof("Server listening on %s:%d\n", gconf.Config.ListenIP(), gconf.Config.ListenPort())
+	global.Logger().Infof("Server listening on %s:%d\n", global.Config().ListenIP(), global.Config().ListenPort())
 
 	e.taskMgr.Start()
 	go e.connMgr.Start()
 
 	err := e.gateway.ListenAndServe()
 	if err != nil {
-		glog.Error("ListenAndServe error:", err)
+		global.Logger().Error("ListenAndServe error:", err)
 		return err
 	}
 
 	return nil
+}
+
+func (e *Engine[T]) setup() {
+	global.SetLogger(global.Config().LogFilename(), global.Config().LogMaxAge(), global.Config().LogMaxBackups(),
+		global.Config().LogMaxSize(), global.Config().LogCompress())
+
+	global.SetMsgPool(global.Config().MessagePoolSize(), func() trait.Message {
+		return gpack.NewMessage(0, []byte{})
+	})
 }
 
 // Regist 注册任务处理逻辑

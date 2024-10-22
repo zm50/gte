@@ -10,8 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zm50/gte/constant"
 	"github.com/zm50/gte/core"
-	"github.com/zm50/gte/gconf"
-	"github.com/zm50/gte/glog"
+	"github.com/zm50/gte/global"
 	"github.com/zm50/gte/trait"
 )
 
@@ -28,7 +27,7 @@ type ConnMgr[T any] struct {
 	dispatcher trait.Dispatcher[T]
 
 	// key: fd, value: Conn
-	connShards *core.KVShards[int32, trait.Connection[T]]
+	connShards trait.KVShards[int32, trait.Connection[T]]
 
 	connStartHook func(conn trait.Connection[T])
 
@@ -53,12 +52,12 @@ func NewConnMgr[T any](timeout int, eventSize int, taskMgr trait.TaskMgr[T]) (*C
 		return nil, err
 	}
 
-	connSignalQueues := make([]chan trait.ConnSignal[T], gconf.Config.ConnSignalQueues())
+	connSignalQueues := make([]chan trait.ConnSignal[T], global.Config().ConnSignalQueues())
 	for i := 0; i < len(connSignalQueues); i++ {
-		connSignalQueues[i] = make(chan trait.ConnSignal[T], gconf.Config.ConnSignalQueueLen())
+		connSignalQueues[i] = make(chan trait.ConnSignal[T], global.Config().ConnSignalQueueLen())
 	}
 
-	connShards := core.NewKVShards[int32, trait.Connection[T]](gconf.Config.ConnShardCount())
+	connShards := core.NewKVShards[int32, trait.Connection[T]](global.Config().ConnShardCount())
 
 	// 创建一个连接管理器
 	connMgr := &ConnMgr[T]{
@@ -84,19 +83,19 @@ func (e *ConnMgr[T]) Get(fd int32) (trait.Connection[T], bool) {
 
 // Add 在连接管理器中添加连接
 func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
-	if e.OnlineConns() >= gconf.Config.MaxConns() {
+	if e.OnlineConns() >= global.Config().MaxConns() {
 		return errors.New("online connections limit reached")
 	}
 
 	sock, err := conn.File()
 	if err != nil {
-		glog.Error("get socket file descriptor error:", err)
+		global.Logger().Error("get socket file descriptor error:", err)
 		return err
 	}
 	fd := sock.Fd()
 
 	if _, ok := e.Get(int32(fd)); ok {
-		glog.Error("connection already exists, conn fd:", fd)
+		global.Logger().Error("connection already exists, conn fd:", fd)
 		return errors.Errorf("connection already exists, conn fd: %d", fd)
 	}
 
@@ -106,7 +105,7 @@ func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
 	}
 	err = syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_ADD, int(fd), &event)
 	if err != nil {
-		glog.Error("epoll ctl add error:", err)
+		global.Logger().Error("epoll ctl add error:", err)
 		return err
 	}
 
@@ -124,7 +123,7 @@ func (e *ConnMgr[T]) Add(conn trait.Connection[T]) error {
 func (e *ConnMgr[T]) Del(fd int32) error {
 	conn, ok := e.Get(fd)
 	if !ok {
-		glog.Error("call conn stop hook failed, connection not found, conn fd:", fd)
+		global.Logger().Error("call conn stop hook failed, connection not found, conn fd:", fd)
 		return errors.New("connection not found")
 	}
 
@@ -134,7 +133,7 @@ func (e *ConnMgr[T]) Del(fd int32) error {
 	}
 	err := syscall.EpollCtl(e.epfd, syscall.EPOLL_CTL_DEL, int(fd), &event)
 	if err != nil {
-		glog.Error("epoll ctl del error:", err)
+		global.Logger().Error("epoll ctl del error:", err)
 		return err
 	}
 
@@ -172,7 +171,7 @@ func (e *ConnMgr[T]) BatchCommit(n int) {
 
 		conn, ok := e.Get(fd)
 		if !ok {
-			glog.Error("connection not found, conn fd:", fd)
+			global.Logger().Error("connection not found, conn fd:", fd)
 			continue
 		}
 
@@ -185,7 +184,7 @@ func (e *ConnMgr[T]) BatchCommit(n int) {
 
 // Start 启动连接管理器
 func (e *ConnMgr[T]) Start() {
-	glog.Info("connection manager start...")
+	global.Logger().Info("connection manager start...")
 
 	e.dispatcher.Start()
 
@@ -197,12 +196,12 @@ func (e *ConnMgr[T]) Start() {
 	defer runtime.UnlockOSThread()
 	defer syscall.Close(e.epfd)
 
-	delay := time.Duration(gconf.Config.EpollTimeout()) * time.Millisecond
+	delay := time.Duration(global.Config().EpollTimeout()) * time.Millisecond
 
 	for {
 		n, err := e.Wait()
 		if err != nil {
-			glog.Error("epoll wait error:", err)
+			global.Logger().Error("epoll wait error:", err)
 			continue
 		}
 
@@ -228,7 +227,7 @@ func (e *ConnMgr[T]) Stop() {
 // StartConnSignalHookWorkers 启动连接信号钩子消费者工作池
 func (e *ConnMgr[T]) StartConnSignalHookWorkers() {
 	for i := 0; i < len(e.connSignalQueue); i++ {
-		for j := 0; j < gconf.Config.WorkersPerConnSignalQueue(); j++ {
+		for j := 0; j < global.Config().WorkersPerConnSignalQueue(); j++ {
 			go e.StartConnSignalHookWorker(e.connSignalQueue[i])
 		}
 	}
@@ -251,7 +250,7 @@ func (m *ConnMgr[T]) StartConnSignalHookWorker(connSignalQueue <-chan trait.Conn
 				m.connNotActiveHook(conn)
 			}
 		default:
-			glog.Error("unknown conn signal:", conn.Signal())
+			global.Logger().Error("unknown conn signal:", conn.Signal())
 		}
 	}
 }
